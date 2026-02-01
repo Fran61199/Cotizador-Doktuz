@@ -16,10 +16,11 @@ export type ApiError = {
 export function getApiError(err: unknown): ApiError {
   if (axios.isAxiosError(err)) {
     const e = err as AxiosError<{ detail?: string }>;
+    const data = e.response?.data as { detail?: string; message?: string } | undefined;
     return {
       message: e.message || 'Error de conexión',
       status: e.response?.status,
-      detail: e.response?.data?.detail ?? e.response?.data?.message,
+      detail: data?.detail ?? data?.message,
     };
   }
   return {
