@@ -15,12 +15,12 @@ export type ApiError = {
 
 export function getApiError(err: unknown): ApiError {
   if (axios.isAxiosError(err)) {
-    const e = err as AxiosError<{ detail?: string }>;
-    const data = e.response?.data as { detail?: string; message?: string } | undefined;
+    const e = err as AxiosError;
+    const data = e.response?.data as Record<string, unknown> | undefined;
     return {
       message: e.message || 'Error de conexión',
       status: e.response?.status,
-      detail: data?.detail ?? data?.message,
+      detail: (data?.detail ?? data?.message) as string | undefined,
     };
   }
   return {
