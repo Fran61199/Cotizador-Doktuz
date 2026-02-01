@@ -1,0 +1,263 @@
+{
+  "clinics": [
+    "Clínica Central",
+    "San Juan",
+    "San Pedro",
+    "San Lucas",
+    "Clínica San Felipe",
+    "Clínica Ricardo Palma",
+    "Clínica San Borja",
+    "Clínica Good Hope",
+    "Clínica Anglo Americana",
+    "Clínica Maison de Santé",
+    "Clínica Jesús del Norte",
+    "Clínica San Pablo",
+    "Clínica Rebagliati",
+    "Clínica Sabogal",
+    "Clínica Delgado",
+    "Clínica San José",
+    "Clínica Santa María",
+    "Clínica Montefiori",
+    "Clínica San Martín de Porres",
+    "Clínica San Isidro"
+  ],
+  "tests": [
+    {
+      "id": 1,
+      "name": "Hemograma Completo",
+      "category": "Laboratorio",
+      "prices": {
+        "ingreso": 40.0,
+        "periodico": 35.0,
+        "retiro": 35.0
+      }
+    },
+    {
+      "id": 2,
+      "name": "Perfil Lipídico",
+      "category": "Laboratorio",
+      "prices": {
+        "ingreso": 50.0,
+        "periodico": 45.0,
+        "retiro": 45.0
+      }
+    },
+    {
+      "id": 3,
+      "name": "Radiografía de Tórax PA",
+      "category": "Rayos X",
+      "prices": {
+        "ingreso": 70.0,
+        "periodico": 70.0,
+        "retiro": 70.0
+      }
+    },
+    {
+      "id": 4,
+      "name": "Audiometría Tonal",
+      "category": "Ocupacional",
+      "prices": {
+        "ingreso": 60.0,
+        "periodico": 60.0,
+        "retiro": 60.0
+      }
+    },
+    {
+      "id": 5,
+      "name": "Hemograma Completo",
+      "category": "Laboratorio",
+      "clinic": "Clínica Central",
+      "prices": {
+        "ingreso": 38.0,
+        "periodico": 34.0,
+        "retiro": 34.0
+      }
+    },
+    {
+      "id": 6,
+      "name": "Radiografía de Tórax PA",
+      "category": "Rayos X",
+      "clinic": "Clínica Central",
+      "prices": {
+        "ingreso": 68.0,
+        "periodico": 68.0,
+        "retiro": 68.0
+      }
+    },
+    {
+      "id": 7,
+      "name": "Hemograma Completo",
+      "category": "Laboratorio",
+      "clinic": "San Juan",
+      "prices": {
+        "ingreso": 15.0,
+        "periodico": 15.0,
+        "retiro": 15.0
+      }
+    },
+    {
+      "id": 8,
+      "name": "Hemograma Completo",
+      "category": "Laboratorio",
+      "clinic": "San Pedro",
+      "prices": {
+        "ingreso": 12.0,
+        "periodico": 12.0,
+        "retiro": 12.0
+      }
+    },
+    {
+      "id": 9,
+      "name": "Glucosa en ayunas",
+      "category": "Laboratorio",
+      "prices": {
+        "ingreso": 25.0,
+        "periodico": 22.0,
+        "retiro": 22.0
+      }
+    },
+    {
+      "id": 10,
+      "name": "Creatinina",
+      "category": "Laboratorio",
+      "prices": {
+        "ingreso": 28.0,
+        "periodico": 25.0,
+        "retiro": 25.0
+      }
+    },
+    {
+      "id": 11,
+      "name": "Orina completa",
+      "category": "Laboratorio",
+      "prices": {
+        "ingreso": 22.0,
+        "periodico": 20.0,
+        "retiro": 20.0
+      }
+    },
+    {
+      "id": 12,
+      "name": "Grupo y factor RH",
+      "category": "Laboratorio",
+      "prices": {
+        "ingreso": 35.0,
+        "periodico": 32.0,
+        "retiro": 32.0
+      }
+    },
+    {
+      "id": 13,
+      "name": "Espirometría",
+      "category": "Ocupacional",
+      "prices": {
+        "ingreso": 85.0,
+        "periodico": 80.0,
+        "retiro": 80.0
+      }
+    },
+    {
+      "id": 14,
+      "name": "Evaluación optométrica",
+      "category": "Ocupacional",
+      "prices": {
+        "ingreso": 45.0,
+        "periodico": 42.0,
+        "retiro": 42.0
+      }
+    },
+    {
+      "id": 15,
+      "name": "Electrocardiograma",
+      "category": "Ocupacional",
+      "prices": {
+        "ingreso": 55.0,
+        "periodico": 50.0,
+        "retiro": 50.0
+      }
+    },
+    {
+      "id": 16,
+      "name": "Radiografía lumbar",
+      "category": "Rayos X",
+      "prices": {
+        "ingreso": 90.0,
+        "periodico": 85.0,
+        "retiro": 85.0
+      }
+    },
+    {
+      "id": 17,
+      "name": "Ecografía abdominal",
+      "category": "Imagenología",
+      "prices": {
+        "ingreso": 120.0,
+        "periodico": 110.0,
+        "retiro": 110.0
+      }
+    },
+    {
+      "id": 18,
+      "name": "Prueba de embarazo en orina",
+      "category": "Laboratorio",
+      "prices": {
+        "ingreso": 18.0,
+        "periodico": 15.0,
+        "retiro": 15.0
+      }
+    },
+    {
+      "id": 19,
+      "name": "Perfil tiroideo (TSH)",
+      "category": "Laboratorio",
+      "prices": {
+        "ingreso": 65.0,
+        "periodico": 60.0,
+        "retiro": 60.0
+      }
+    },
+    {
+      "id": 20,
+      "name": "Test de embarazo en sangre (BHCG)",
+      "category": "Laboratorio",
+      "prices": {
+        "ingreso": 42.0,
+        "periodico": 38.0,
+        "retiro": 38.0
+      }
+    },
+    {
+      "id": 21,
+      "name": "Espirometría",
+      "category": "Ocupacional",
+      "clinic": "Clínica Central",
+      "prices": {
+        "ingreso": 78.0,
+        "periodico": 75.0,
+        "retiro": 75.0
+      }
+    },
+    {
+      "id": 22,
+      "name": "Glucosa en ayunas",
+      "category": "Laboratorio",
+      "clinic": "San Juan",
+      "prices": {
+        "ingreso": 18.0,
+        "periodico": 16.0,
+        "retiro": 16.0
+      }
+    },
+    {
+      "id": 23,
+      "name": "Perfil Lipídico",
+      "category": "Laboratorio",
+      "clinic": "San Lucas",
+      "prices": {
+        "ingreso": 42.0,
+        "periodico": 40.0,
+        "retiro": 40.0
+      }
+    }
+  ]
+}
