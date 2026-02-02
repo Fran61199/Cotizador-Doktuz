@@ -17,21 +17,14 @@ def _cra_cell_value(
     letter: str,
     name: str,
     classification: str,
-    get_val: Callable[[str, str, str], str],
+    get_cra_price: Callable[[str, str, str], str],
     group_defs: List[Tuple[str, List[str]]],
 ) -> List[str]:
-    """
-    Valor por columna para una fila CRA.
-    - Adicional: precio (S/ XX.XX) por cada (proto, tipo).
-    - Condicional / Requisito: letra (C o R) en todas las columnas.
-    """
+    """Valor por columna para una fila CRA: precio (S/ XX.XX) en todas las columnas."""
     values = []
     for proto, tps in group_defs:
         for t in tps:
-            if classification == "adicional":
-                values.append(get_val(name, proto, t))
-            else:
-                values.append(letter)
+            values.append(get_cra_price(name, proto, t))
     return values
 
 
@@ -42,6 +35,7 @@ def add_unified_table(
     tests_with_meta: List[Tuple[str, str, bool]],
     get_val,
     get_num_val,
+    get_cra_price,
     skip_total_row: bool,
     clinic_totals: List,
     cra_items: List[CRAItemRow],
@@ -202,7 +196,7 @@ def add_unified_table(
         for letter, name, category, desc, classification in cra_items:
             table.cell(out_row, 0).text = f"({letter}) {name} ({category}) — {desc}"
             table.cell(out_row, 0).text_frame.word_wrap = True
-            cell_values = _cra_cell_value(letter, name, classification, get_val, group_defs)
+            cell_values = _cra_cell_value(letter, name, classification, get_cra_price, group_defs)
             for col_idx, value in enumerate(cell_values, start=1):
                 table.cell(out_row, col_idx).text = value
             for c in range(cols):

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import NProgress from 'nprogress';
 import { getNextProposalNumber, createDocuments, getApiError } from '@/api';
 import type { GenerationPayload } from '@/types';
 
@@ -12,6 +13,7 @@ export function useGeneration() {
     async (payload: Omit<GenerationPayload, 'proposal_number'>) => {
       setError(null);
       setGenerating(true);
+      NProgress.start();
       try {
         const proposal_number = await getNextProposalNumber(payload.executive);
         const fullPayload: GenerationPayload = {
@@ -33,6 +35,7 @@ export function useGeneration() {
         throw err;
       } finally {
         setGenerating(false);
+        NProgress.done();
       }
     },
     []

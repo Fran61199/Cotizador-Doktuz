@@ -134,30 +134,20 @@ def build_ppt(payload: GenerationRequest, out_path: str) -> str:
     tests_with_meta: List[Tuple[str, str, bool]] = []
     for raw_name in tests_order:
         cl = classification_by_name.get(raw_name)
-        is_cra = cl in CRA_CLASSIFICATIONS if cl else False
-        tests_with_meta.append((raw_name, raw_name, is_cra))
-
-    def _fmt_price(val: float) -> str:
-        try:
-            return f"S/ {float(val):.2f}"
-        except Exception:
-            return "-"
+        if cl in CRA_CLASSIFICATIONS:
+            continue  # CRA (adicional, requisito, condicional) solo en tabla de condicionales; no suman al total
+        tests_with_meta.append((raw_name, raw_name, False))
 
     def _get_val(test_name: str, proto: str, t: str) -> str:
+        """Devuelve X, C, R o A según corresponda; nunca precios en la tabla principal."""
         for s in by_proto.get(proto, []):
             if s.name == test_name:
                 if t not in s.types:
                     return "-"
                 cl = getattr(s, "classification", None) or None
                 if cl in CRA_CLASSIFICATIONS:
-                    if cl == "adicional":
-                        ov = (s.overrides or {}).get(t)
-                        price = ov if ov is not None else s.prices.get(t, 0.0)
-                        return _fmt_price(price)
-                    return CLASSIFICATION_LETTER.get(cl, "-")
-                ov = (s.overrides or {}).get(t)
-                price = ov if ov is not None else s.prices.get(t, 0.0)
-                return _fmt_price(price)
+                    return CLASSIFICATION_LETTER.get(cl, "X")
+                return "X"
         return "-"
 
     def _get_num_val(test_name: str, proto: str, t: str) -> Optional[float]:
@@ -172,6 +162,20 @@ def build_ppt(payload: GenerationRequest, out_path: str) -> str:
                 except Exception:
                     return None
         return None
+
+    def _get_cra_price(test_name: str, proto: str, t: str) -> str:
+        """Precio para ítem CRA (condicional, requisito, adicional) en la tabla de condicionales."""
+        for s in by_proto.get(proto, []):
+            if s.name == test_name and getattr(s, "classification", None) in CRA_CLASSIFICATIONS:
+                if t not in (s.types or []):
+                    return "-"
+                ov = (s.overrides or {}).get(t)
+                price = ov if ov is not None else (s.prices or {}).get(t, 0.0)
+                try:
+                    return f"S/ {float(price):.2f}"
+                except Exception:
+                    return "-"
+        return "-"
 
     clinic_totals = getattr(payload, "clinic_totals", None) or []
 
@@ -195,6 +199,7 @@ def build_ppt(payload: GenerationRequest, out_path: str) -> str:
         tests_with_meta=tests_with_meta,
         get_val=_get_val,
         get_num_val=_get_num_val,
+        get_cra_price=_get_cra_price,
         skip_total_row=False,
         clinic_totals=clinic_totals,
         cra_items=cra_items,
