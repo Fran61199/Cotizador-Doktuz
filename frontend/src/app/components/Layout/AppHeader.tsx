@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { signOut, useSession } from 'next-auth/react';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -82,11 +83,27 @@ export default function AppHeader({ onGenerate, generating }: AppHeaderProps) {
   const { data: session } = useSession();
   const { theme, toggleTheme } = useTheme();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
+  const dropdownContentRef = useRef<HTMLDivElement | null>(null);
+
+  const updateDropdownPosition = () => {
+    if (profileButtonRef.current) {
+      const rect = profileButtonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 8,
+        right: typeof window !== 'undefined' ? window.innerWidth - rect.right : 0,
+      });
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inTrigger = dropdownRef.current?.contains(target);
+      const inDropdown = dropdownContentRef.current?.contains(target);
+      if (!inTrigger && !inDropdown) {
         setDropdownOpen(false);
       }
     }
@@ -94,7 +111,76 @@ export default function AppHeader({ onGenerate, generating }: AppHeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (dropdownOpen && profileButtonRef.current) {
+      updateDropdownPosition();
+      const onScrollOrResize = () => {
+        updateDropdownPosition();
+      };
+      window.addEventListener('scroll', onScrollOrResize, true);
+      window.addEventListener('resize', onScrollOrResize);
+      return () => {
+        window.removeEventListener('scroll', onScrollOrResize, true);
+        window.removeEventListener('resize', onScrollOrResize);
+      };
+    }
+  }, [dropdownOpen]);
+
   const displayName = session?.user?.name || session?.user?.email || 'Usuario';
+
+  const dropdownContent = dropdownOpen ? (
+    <div
+      ref={(el) => { dropdownContentRef.current = el; }}
+      className="app-nav-profile-dropdown app-nav-profile-dropdown-portal"
+      style={{
+        position: 'fixed',
+        top: dropdownPosition.top,
+        right: dropdownPosition.right,
+        left: 'auto',
+        minWidth: 240,
+      }}
+    >
+      <div className="app-nav-profile-item app-nav-profile-item-name">
+        <span className="app-nav-profile-icon">
+          <IconGear />
+        </span>
+        <div className="app-nav-profile-name-block">
+          <span className="app-nav-profile-label">Mi perfil</span>
+          <span className="app-nav-profile-value">{displayName}</span>
+        </div>
+      </div>
+      <Link
+        href="/pruebas"
+        className="app-nav-profile-item app-nav-profile-link"
+        onClick={() => setDropdownOpen(false)}
+      >
+        <span className="app-nav-profile-icon">
+          <IconDocument />
+        </span>
+        <span>Pruebas</span>
+      </Link>
+      <Link
+        href="/usuarios"
+        className="app-nav-profile-item app-nav-profile-link"
+        onClick={() => setDropdownOpen(false)}
+      >
+        <span className="app-nav-profile-icon">
+          <IconUsers />
+        </span>
+        <span>Usuarios</span>
+      </Link>
+      <button
+        type="button"
+        className="app-nav-profile-item app-nav-profile-link app-nav-profile-signout"
+        onClick={() => signOut({ callbackUrl: '/login' })}
+      >
+        <span className="app-nav-profile-icon">
+          <IconLogout />
+        </span>
+        <span>Cerrar sesión</span>
+      </button>
+    </div>
+  ) : null;
 
   return (
     <nav className="app-nav-doktuz">
@@ -152,9 +238,13 @@ export default function AppHeader({ onGenerate, generating }: AppHeaderProps) {
 
           <div className="app-nav-profile-wrap" ref={dropdownRef}>
             <button
+              ref={profileButtonRef}
               type="button"
               className="app-nav-profile-btn"
-              onClick={() => setDropdownOpen((o) => !o)}
+              onClick={() => {
+                if (!dropdownOpen) updateDropdownPosition();
+                setDropdownOpen((o) => !o);
+              }}
               aria-expanded={dropdownOpen}
               aria-haspopup="true"
             >
@@ -162,49 +252,7 @@ export default function AppHeader({ onGenerate, generating }: AppHeaderProps) {
                 <IconUser />
               </span>
             </button>
-            {dropdownOpen && (
-              <div className="app-nav-profile-dropdown">
-                <div className="app-nav-profile-item app-nav-profile-item-name">
-                  <span className="app-nav-profile-icon">
-                    <IconGear />
-                  </span>
-                  <div className="app-nav-profile-name-block">
-                    <span className="app-nav-profile-label">Mi perfil</span>
-                    <span className="app-nav-profile-value">{displayName}</span>
-                  </div>
-                </div>
-                <Link
-                  href="/pruebas"
-                  className="app-nav-profile-item app-nav-profile-link"
-                  onClick={() => setDropdownOpen(false)}
-                >
-                  <span className="app-nav-profile-icon">
-                    <IconDocument />
-                  </span>
-                  <span>Pruebas</span>
-                </Link>
-                <Link
-                  href="/usuarios"
-                  className="app-nav-profile-item app-nav-profile-link"
-                  onClick={() => setDropdownOpen(false)}
-                >
-                  <span className="app-nav-profile-icon">
-                    <IconUsers />
-                  </span>
-                  <span>Usuarios</span>
-                </Link>
-                <button
-                  type="button"
-                  className="app-nav-profile-item app-nav-profile-link app-nav-profile-signout"
-                  onClick={() => signOut({ callbackUrl: '/login' })}
-                >
-                  <span className="app-nav-profile-icon">
-                    <IconLogout />
-                  </span>
-                  <span>Cerrar sesión</span>
-                </button>
-              </div>
-            )}
+            {typeof document !== 'undefined' && createPortal(dropdownContent, document.body)}
           </div>
         </div>
       </div>

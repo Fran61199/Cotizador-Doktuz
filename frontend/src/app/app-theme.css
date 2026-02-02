@@ -511,8 +511,7 @@ html, body {
   background-image: linear-gradient(to right bottom, rgb(34, 38, 52) 0%, rgb(11, 52, 77) 100%);
   border-bottom: 2px solid rgba(0, 0, 0, 0.1);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
 }
 
 .app-nav-inner {
@@ -674,6 +673,11 @@ html, body {
   padding: 0.5rem 0;
   z-index: 100;
   transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Dropdown renderizado en portal (body) para que no se corte por overflow del navbar */
+.app-nav-profile-dropdown-portal {
+  z-index: 9999;
 }
 
 .app-nav-profile-item {
