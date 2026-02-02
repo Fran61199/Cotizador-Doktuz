@@ -1,6 +1,6 @@
 import { api, getApiError } from './client';
 
-export type RegisterPayload = { email: string; password: string; name?: string };
+export type RegisterPayload = { email: string; password?: string; name?: string };
 export type UserAuthResponse = { id: number; email: string; name: string | null };
 export type RegisterResponse = UserAuthResponse & { email_sent: boolean };
 

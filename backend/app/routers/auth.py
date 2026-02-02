@@ -51,7 +51,7 @@ class AddUserBody(BaseModel):
 
 class RegisterBody(BaseModel):
     email: str
-    password: str
+    password: str | None = None  # ignorado: se genera contraseña aleatoria y se envía por correo
     name: str | None = None
 
 
@@ -162,12 +162,23 @@ def _send_invite_email(to_email: str, plain_password: str, login_url: str) -> bo
         return False
 
 
-def _send_welcome_email(to_email: str, name: str | None, login_url: str) -> bool:
-    """Envía correo de bienvenida al registrarse (Resend o SMTP)."""
+def _send_welcome_email(to_email: str, name: str | None, login_url: str, plain_password: str | None = None) -> bool:
+    """Envía correo de bienvenida al registrarse. Si plain_password se pasa, lo incluye (contraseña aleatoria)."""
     import logging
     api_key = os.getenv("RESEND_API_KEY")
     from_resend = (os.getenv("RESEND_FROM") or "Cotizador <onboarding@resend.dev>").strip()
     saludo = f"Hola, {name}." if name else "Hola."
+    if plain_password:
+        html_body = (
+            f'<p>{saludo}</p>'
+            f'<p>Se ha creado tu cuenta. Tu contraseña de acceso es:</p><p><strong>{plain_password}</strong></p>'
+            f'<p>Inicia sesión aquí: <a href="{login_url}">{login_url}</a></p>'
+            f'<p>Recomendamos cambiar la contraseña desde "Olvidé mi contraseña" después del primer acceso.</p>'
+        )
+        text_body = f"{saludo}\n\nSe ha creado tu cuenta. Tu contraseña de acceso es: {plain_password}\n\nInicia sesión: {login_url}\n\nRecomendamos cambiar la contraseña desde Olvidé mi contraseña después del primer acceso."
+    else:
+        html_body = f'<p>{saludo}</p><p>Tu cuenta está lista. Ya puedes iniciar sesión:</p><p><a href="{login_url}">{login_url}</a></p>'
+        text_body = f"{saludo}\n\nTu cuenta está lista. Ya puedes iniciar sesión en: {login_url}"
     if api_key:
         try:
             import httpx
@@ -178,7 +189,7 @@ def _send_welcome_email(to_email: str, name: str | None, login_url: str) -> bool
                     "from": from_resend,
                     "to": [to_email],
                     "subject": "Bienvenido a Cotizador",
-                    "html": f'<p>{saludo}</p><p>Tu cuenta está lista. Ya puedes iniciar sesión:</p><p><a href="{login_url}">{login_url}</a></p>',
+                    "html": html_body,
                 },
                 timeout=10.0,
             )
@@ -197,8 +208,7 @@ def _send_welcome_email(to_email: str, name: str | None, login_url: str) -> bool
     try:
         import smtplib
         from email.mime.text import MIMEText
-        text = f"{saludo}\n\nTu cuenta está lista. Ya puedes iniciar sesión en: {login_url}"
-        msg = MIMEText(text, "plain")
+        msg = MIMEText(text_body, "plain")
         msg["Subject"] = "Bienvenido a Cotizador"
         msg["From"] = from_email
         msg["To"] = to_email
@@ -234,33 +244,28 @@ def invite_user(body: AddUserBody, db: Session = Depends(get_db)):
 
 @router.post("/register", response_model=RegisterResponse)
 def register(body: RegisterBody, db: Session = Depends(get_db)):
-    """Registro con email y contraseña. Cualquier email. Envía correo de bienvenida."""
+    """Registro: se genera contraseña aleatoria y se envía por correo junto al enlace de login."""
     email = (body.email or "").strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Email obligatorio")
-    if not (body.password or "").strip():
-        raise HTTPException(status_code=400, detail="Contraseña obligatoria")
-    if len((body.password or "").strip()) < 6:
-        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Ya existe una cuenta con ese email")
     name = (body.name or "").strip() or None
-    password_hash = bcrypt.hashpw(
-        body.password.strip().encode("utf-8"),
-        bcrypt.gensalt(),
-    ).decode("utf-8")
+    plain_password = "".join(str(secrets.randbelow(10)) for _ in range(6))
+    password_hash = bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     user = User(email=email, password_hash=password_hash, name=name)
     db.add(user)
     db.commit()
     db.refresh(user)
     frontend_url = (os.getenv("FRONTEND_URL") or os.getenv("NEXT_PUBLIC_APP_URL") or "http://localhost:3000").rstrip("/")
     login_url = f"{frontend_url}/login"
-    email_sent = _send_welcome_email(email, name, login_url)
+    email_sent = _send_welcome_email(email, name, login_url, plain_password=plain_password)
     return RegisterResponse(id=user.id, email=user.email, name=user.name, email_sent=email_sent)
 
 
 def _send_reset_email(to_email: str, reset_link: str) -> bool:
     """Envía email con enlace de restablecimiento. Resend o SMTP. Devuelve True si se envió."""
+    import logging
     # 1) Resend (prioridad si está configurado)
     api_key = os.getenv("RESEND_API_KEY")
     from_resend = (os.getenv("RESEND_FROM") or "Cotizador <onboarding@resend.dev>").strip()
@@ -281,8 +286,15 @@ def _send_reset_email(to_email: str, reset_link: str) -> bool:
                 },
                 timeout=10.0,
             )
-            return r.status_code == 200
-        except Exception:
+            if r.status_code == 200:
+                return True
+            logging.warning(
+                "Resend reset email failed: status=%s body=%s (RESEND_API_KEY set, check key and RESEND_FROM domain)",
+                r.status_code, r.text,
+            )
+            return False
+        except Exception as e:
+            logging.warning("Resend reset email error: %s", e)
             return False
     # 2) SMTP (alternativa)
     host = os.getenv("SMTP_HOST")
@@ -290,6 +302,10 @@ def _send_reset_email(to_email: str, reset_link: str) -> bool:
     password_smtp = os.getenv("SMTP_PASSWORD")
     from_email = os.getenv("SMTP_FROM", user_smtp)
     if not host or not user_smtp or not password_smtp:
+        logging.warning(
+            "Reset email not sent: no RESEND_API_KEY and no SMTP (SMTP_HOST/SMTP_USER/SMTP_PASSWORD). "
+            "Set RESEND_API_KEY and RESEND_FROM in Render (or SMTP_*) for forgot-password emails."
+        )
         return False
     try:
         import smtplib
@@ -307,19 +323,23 @@ def _send_reset_email(to_email: str, reset_link: str) -> bool:
             server.login(user_smtp, password_smtp)
             server.sendmail(from_email, to_email, msg.as_string())
         return True
-    except Exception:
+    except Exception as e:
+        logging.warning("SMTP reset email error: %s", e)
         return False
 
 
 @router.post("/forgot-password")
 def forgot_password(body: ForgotPasswordBody, db: Session = Depends(get_db)):
     """Solicita restablecer contraseña. Siempre devuelve éxito para no revelar si el email existe."""
+    import logging
     email = (body.email or "").strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Email obligatorio")
     user = db.query(User).filter(User.email == email).first()
-    if not user or user.password_hash == GOOGLE_MARKER:
+    if not user:
+        logging.info("forgot-password: email not in DB, no email sent (by design): %s", email)
         return {"message": "Si el correo existe, recibirás un enlace para restablecer tu contraseña."}
+    # Usuarios con cuenta (email/password o Google) reciben el enlace; los Google-only pueden así fijar contraseña
     token = secrets.token_urlsafe(32)
     expires_at = (datetime.utcnow() + timedelta(hours=RESET_TOKEN_EXPIRY_HOURS)).isoformat() + "Z"
     db.add(PasswordResetToken(email=email, token=token, expires_at=expires_at))
@@ -328,7 +348,7 @@ def forgot_password(body: ForgotPasswordBody, db: Session = Depends(get_db)):
     reset_link = f"{frontend_url}/restablecer-clave?token={token}"
     sent = _send_reset_email(email, reset_link)
     if not sent:
-        pass
+        logging.warning("forgot-password: _send_reset_email returned False for %s", email)
     return {"message": "Si el correo existe, recibirás un enlace para restablecer tu contraseña."}
 
 

@@ -8,8 +8,6 @@ import { register as registerApi, getApiError } from '@/api';
 export default function RegistroPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,19 +15,10 @@ export default function RegistroPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (password !== confirmPassword) {
-      setError('Las contraseñas no coinciden.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
-      return;
-    }
     setLoading(true);
     try {
       const res = await registerApi({
         email: email.trim(),
-        password,
         name: name.trim() || undefined,
       });
       router.push(`/login?registered=1&email_sent=${res.email_sent ? '1' : '0'}`);
@@ -47,6 +36,9 @@ export default function RegistroPage() {
       <div className="login-inner">
         <Link href="/login" className="login-back-link">← Iniciar sesión</Link>
         <h1 className="login-title">Registrarse</h1>
+        <p className="login-intro" style={{ marginBottom: '1rem' }}>
+          Recibirás una contraseña por correo junto al enlace para iniciar sesión.
+        </p>
         <form className="login-form" onSubmit={handleSubmit}>
           <label htmlFor="email" className="login-label">Email</label>
           <input
@@ -66,28 +58,6 @@ export default function RegistroPage() {
             placeholder="Tu nombre"
             value={name}
             onChange={(e) => setName(e.target.value)}
-          />
-          <label htmlFor="password" className="login-label">Contraseña</label>
-          <input
-            id="password"
-            type="password"
-            className="login-input"
-            placeholder="Mínimo 6 caracteres"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-          />
-          <label htmlFor="confirmPassword" className="login-label">Repetir contraseña</label>
-          <input
-            id="confirmPassword"
-            type="password"
-            className="login-input"
-            placeholder="Repetir contraseña"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            minLength={6}
           />
           {error && (
             <p className="login-error" role="alert">
