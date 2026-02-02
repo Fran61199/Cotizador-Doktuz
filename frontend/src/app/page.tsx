@@ -70,7 +70,11 @@ export default function Page() {
       toast.error('Completa Empresa, Destinatario y Ejecutivo');
       return;
     }
-    if (selections.selections.length === 0) {
+    // Excluir selecciones sin nombre o sin tipos (evita fila vacía en PPT al generar desde Lima con sede provincia seleccionada)
+    const selectionsToSend = selections.selections.filter(
+      (s) => (s.name || '').trim() !== '' && (s.types?.length ?? 0) > 0
+    );
+    if (selectionsToSend.length === 0) {
       toast.error('Selecciona al menos una prueba');
       return;
     }
@@ -81,14 +85,16 @@ export default function Page() {
         executive,
         executive_title: getExecutiveTitle(executive),
         location,
-        selections: selections.selections,
+        selections: selectionsToSend,
         protocols: protocols.protocols,
         images: [],
+        // Enviar sedes provincia si hay alguna seleccionada (para totales por clínica aunque la pestaña activa sea Lima)
         clinics:
-          location === 'Provincia' && selectedClinics.length > 0
-            ? selectedClinics
+          selectedClinics.length > 0 ? selectedClinics : undefined,
+        margin:
+          selectedClinics.length > 0
+            ? (typeof margin === 'number' && margin >= 20 ? margin : 20)
             : undefined,
-        margin: location === 'Provincia' ? (typeof margin === 'number' && margin >= 20 ? margin : 20) : undefined,
       });
       toast.success('Cotización generada');
     } catch {

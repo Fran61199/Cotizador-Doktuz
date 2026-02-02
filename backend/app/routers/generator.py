@@ -27,9 +27,9 @@ def _cleanup(paths):
             pass
 
 def _compute_clinic_totals(payload: GenerationRequest) -> list:
-    """Calcula totales por clínica (Provincia): ingreso, periodico, retiro excluyendo C/R/A."""
+    """Calcula totales por clínica (sedes provincia): ingreso, periodico, retiro excluyendo C/R/A."""
     clinics = payload.clinics or []
-    if payload.location != "Provincia" or not clinics:
+    if not clinics:
         return []
     margin = payload.margin or 20.0
     result = []
@@ -88,10 +88,10 @@ def create_documents(payload: GenerationRequest):
     if not payload.selections and not payload.images:
         raise HTTPException(status_code=400, detail="Debe existir al menos una selección o imagen")
 
-    # Totales por clínica solo si hay clínicas seleccionadas (independiente de Lima/Provincia en la UI)
+    # Totales por clínica si hay sedes provincia seleccionadas (Lima o Provincia como pestaña activa)
     if not payload.clinics:
         payload.clinic_totals = []
-    elif payload.location == "Provincia" and not payload.clinic_totals:
+    elif not payload.clinic_totals:
         payload.clinic_totals = _compute_clinic_totals(payload)
 
     # Copia para docgen: en Provincia, primera tabla usa precios Lima (sin mutar payload)

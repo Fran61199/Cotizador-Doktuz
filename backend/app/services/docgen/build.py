@@ -1,5 +1,6 @@
 # app/services/docgen/build.py
 """Orquestador de generación PPT."""
+import unicodedata
 from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 
@@ -12,6 +13,14 @@ from app.models.schemas import GenerationRequest
 from .config import ROW_HEIGHT_INCHES
 from .helpers import must_template, find_table_anchor, fill_cover_fields
 from .table_builder import add_unified_table
+
+
+def _normalize_cra_name(s: str) -> str:
+    """Quita caracteres invisibles (zero-width, format) y espacios; evita filas fantasma."""
+    if not s:
+        return ""
+    out = "".join(c for c in s if unicodedata.category(c) != "Cf")
+    return out.strip()
 
 
 def build_ppt(payload: GenerationRequest, out_path: str) -> str:
@@ -108,23 +117,29 @@ def build_ppt(payload: GenerationRequest, out_path: str) -> str:
     cra_items: List[Tuple[str, str, str, str]] = []
     seen_cra: set = set()
     for s in (payload.selections or []):
-        name = (getattr(s, "name", "") or "").strip()
+        types = getattr(s, "types", None) or []
+        if not types:
+            continue
+        raw_name = (getattr(s, "name", "") or "").strip()
+        name = _normalize_cra_name(raw_name)
         if not name:
             continue
-        cl = getattr(s, "classification", None) or None
-        if cl in CRA_CLASSIFICATIONS and name not in seen_cra:
-            seen_cra.add(name)
-            letter = CLASSIFICATION_LETTER.get(cl, "?")
-            if cl == "adicional":
-                desc = CRA_DESCRIPTIONS.get("adicional", "Examen adicional")
-            else:
-                desc = (getattr(s, "detail", "") or "").strip() or "—"
-            category = (s.category or "").strip()
-            # No añadir filas que se verían vacías (solo puntuación/paréntesis)
-            row_text = f"({letter}) {name} ({category}) — {desc}"
-            if not any(c.isalnum() for c in row_text):
-                continue
-            cra_items.append((letter, name, category, desc))
+        if not any(c.isalnum() for c in name):
+            continue
+        cl = (getattr(s, "classification", None) or "").strip() or None
+        if not cl or cl not in CRA_CLASSIFICATIONS or name in seen_cra:
+            continue
+        seen_cra.add(name)
+        letter = CLASSIFICATION_LETTER.get(cl, "?")
+        if cl == "adicional":
+            desc = CRA_DESCRIPTIONS.get("adicional", "Examen adicional")
+        else:
+            desc = (getattr(s, "detail", "") or "").strip() or "—"
+        category = (s.category or "").strip()
+        row_text = f"({letter}) {name} ({category}) — {desc}"
+        if not any(c.isalnum() for c in row_text):
+            continue
+        cra_items.append((letter, name, category, desc))
 
     add_unified_table(
         slide=anchor_slide,

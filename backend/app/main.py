@@ -36,6 +36,12 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+def root():
+    """Raíz: info mínima y enlace a docs."""
+    return {"app": "Cotizador EMOs API", "docs": "/docs", "health": "/health"}
+
+
 @app.get("/health")
 def health():
     """Endpoint para health checks / cron ping (evitar sleep en Render)."""
