@@ -917,6 +917,21 @@ html, body {
   color: var(--text-primary);
 }
 
+/* Usuarios: contraste en modo oscuro y texto listo para prod */
+[data-theme="dark"] .usuarios-section .usuarios-intro,
+[data-theme="dark"] .usuarios-section .usuarios-label,
+[data-theme="dark"] .usuarios-section .usuarios-muted,
+[data-theme="dark"] .usuarios-section .usuarios-th {
+  color: #b8c0cc !important;
+}
+[data-theme="dark"] .usuarios-table-wrap .table thead th.usuarios-th {
+  color: #b8c0cc !important;
+  background: var(--table-header-bg);
+}
+[data-theme="dark"] .usuarios-section .form-control::placeholder {
+  color: #b8c0cc;
+}
+
 .selection-empty {
   font-size: 0.875rem;
   color: var(--text-muted);

@@ -63,26 +63,26 @@ export default function UsuariosPage() {
           <div className="container" style={{ maxWidth: 800 }}>
             <section className="usuarios-section">
               <h6 className="section-title">Usuarios autorizados</h6>
-              <p className="small text-muted mb-3">
-                Usuarios autorizados para iniciar sesión con Google (OAuth). Añade cualquier email (ej. @doktuz.com o @gmail.com).
+              <p className="usuarios-intro small text-muted mb-3">
+                Añade emails para autorizar inicio con Google.
               </p>
 
               <div className="app-card mb-4">
                 <h6 className="small fw-semibold mb-3">Añadir usuario</h6>
                 <form onSubmit={handleAdd} className="d-flex flex-wrap gap-2 align-items-end">
                   <div>
-                    <label className="form-label small text-muted mb-1">Email</label>
+                    <label className="form-label usuarios-label small text-muted mb-1">Email</label>
                     <input
                       type="email"
                       className="form-control form-control-sm app-input"
-                      placeholder="ej. usuario@gmail.com o nombre@doktuz.com"
+                      placeholder="email@ejemplo.com"
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                       style={{ minWidth: 220 }}
                     />
                   </div>
                   <div>
-                    <label className="form-label small text-muted mb-1">Nombre (opcional)</label>
+                    <label className="form-label usuarios-label small text-muted mb-1">Nombre (opcional)</label>
                     <input
                       type="text"
                       className="form-control form-control-sm app-input"
@@ -102,23 +102,23 @@ export default function UsuariosPage() {
                 <h6 className="small fw-semibold mb-3">Tabla de usuarios</h6>
                 {error && <div className="text-danger small mb-2">{error}</div>}
                 {loading ? (
-                  <span className="text-muted small">Cargando…</span>
+                  <span className="usuarios-muted small">Cargando…</span>
                 ) : users.length === 0 ? (
-                  <span className="text-muted small">Sin usuarios</span>
+                  <span className="usuarios-muted small">Sin usuarios</span>
                 ) : (
                   <div className="table-responsive usuarios-table-wrap">
                     <table className="table table-sm align-middle mb-0">
                       <thead>
                         <tr>
-                          <th className="small text-muted">Email</th>
-                          <th className="small text-muted">Nombre</th>
+                          <th className="small usuarios-th">Email</th>
+                          <th className="small usuarios-th">Nombre</th>
                         </tr>
                       </thead>
                       <tbody>
                         {users.map((u) => (
                           <tr key={u.id}>
                             <td className="small">{u.email}</td>
-                            <td className="small text-muted">{u.name || '—'}</td>
+                            <td className="small usuarios-muted">{u.name || '—'}</td>
                           </tr>
                         ))}
                       </tbody>
