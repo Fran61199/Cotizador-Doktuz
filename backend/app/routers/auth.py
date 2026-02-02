@@ -1,15 +1,22 @@
+import os
+import secrets
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import bcrypt
 
 from app.database import get_db
-from app.models.db_models import User
+from app.models.db_models import User, PasswordResetToken
 
 router = APIRouter()
 
 # Marcador para usuarios solo Google (no usan contraseña)
 GOOGLE_MARKER = "GOOGLE_ONLY"
+
+# Caducidad del token de restablecimiento (horas)
+RESET_TOKEN_EXPIRY_HOURS = 24
 
 
 class CredentialsBody(BaseModel):
@@ -26,6 +33,21 @@ class UserResponse(BaseModel):
 class AddUserBody(BaseModel):
     email: str
     name: str | None = None
+
+
+class RegisterBody(BaseModel):
+    email: str
+    password: str
+    name: str | None = None
+
+
+class ForgotPasswordBody(BaseModel):
+    email: str
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
+    new_password: str
 
 
 @router.post("/verify", response_model=UserResponse)
@@ -75,3 +97,204 @@ def add_user(body: AddUserBody, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     return UserResponse(id=user.id, email=user.email, name=user.name)
+
+
+def _send_invite_email(to_email: str, plain_password: str, login_url: str) -> bool:
+    """Envía email con contraseña generada. Resend o SMTP. La contraseña solo va en el email, nunca se guarda en claro."""
+    api_key = os.getenv("RESEND_API_KEY")
+    from_resend = (os.getenv("RESEND_FROM") or "Cotizador <onboarding@resend.dev>").strip()
+    if api_key:
+        try:
+            import httpx
+            r = httpx.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "from": from_resend,
+                    "to": [to_email],
+                    "subject": "Tu cuenta en Cotizador - Contraseña de acceso",
+                    "html": f'<p>Se ha creado tu cuenta. Tu contraseña temporal es:</p><p><strong>{plain_password}</strong></p><p>Inicia sesión aquí: <a href="{login_url}">{login_url}</a></p><p>Recomendamos cambiar la contraseña desde "Olvidé mi contraseña" después del primer acceso.</p>',
+                },
+                timeout=10.0,
+            )
+            return r.status_code == 200
+        except Exception:
+            return False
+    host = os.getenv("SMTP_HOST")
+    user_smtp = os.getenv("SMTP_USER")
+    password_smtp = os.getenv("SMTP_PASSWORD")
+    from_email = os.getenv("SMTP_FROM", user_smtp)
+    if not host or not user_smtp or not password_smtp:
+        return False
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        text = f"Se ha creado tu cuenta. Tu contraseña temporal es: {plain_password}\n\nInicia sesión: {login_url}\n\nRecomendamos cambiar la contraseña desde Olvidé mi contraseña después del primer acceso."
+        msg = MIMEText(text, "plain")
+        msg["Subject"] = "Tu cuenta en Cotizador - Contraseña de acceso"
+        msg["From"] = from_email
+        msg["To"] = to_email
+        with smtplib.SMTP(host, int(os.getenv("SMTP_PORT", "587"))) as server:
+            server.starttls()
+            server.login(user_smtp, password_smtp)
+            server.sendmail(from_email, to_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+@router.post("/users/invite", response_model=UserResponse)
+def invite_user(body: AddUserBody, db: Session = Depends(get_db)):
+    """Crea un usuario con contraseña aleatoria y la envía por email. La tabla guarda solo el hash (bcrypt)."""
+    email = (body.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email obligatorio")
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="El usuario ya existe")
+    name = (body.name or "").strip() or None
+    plain_password = secrets.token_urlsafe(12)
+    password_hash = bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    user = User(email=email, password_hash=password_hash, name=name)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    frontend_url = (os.getenv("FRONTEND_URL") or os.getenv("NEXT_PUBLIC_APP_URL") or "http://localhost:3000").rstrip("/")
+    login_url = f"{frontend_url}/login"
+    sent = _send_invite_email(email, plain_password, login_url)
+    if not sent:
+        raise HTTPException(
+            status_code=503,
+            detail="Usuario creado pero no se pudo enviar el email. Configura RESEND_API_KEY o SMTP. El usuario puede usar Olvidé mi contraseña.",
+        )
+    return UserResponse(id=user.id, email=user.email, name=user.name)
+
+
+@router.post("/register", response_model=UserResponse)
+def register(body: RegisterBody, db: Session = Depends(get_db)):
+    """Registro con email y contraseña. Cualquier email."""
+    email = (body.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email obligatorio")
+    if not (body.password or "").strip():
+        raise HTTPException(status_code=400, detail="Contraseña obligatoria")
+    if len((body.password or "").strip()) < 6:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="Ya existe una cuenta con ese email")
+    name = (body.name or "").strip() or None
+    password_hash = bcrypt.hashpw(
+        body.password.strip().encode("utf-8"),
+        bcrypt.gensalt(),
+    ).decode("utf-8")
+    user = User(email=email, password_hash=password_hash, name=name)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return UserResponse(id=user.id, email=user.email, name=user.name)
+
+
+def _send_reset_email(to_email: str, reset_link: str) -> bool:
+    """Envía email con enlace de restablecimiento. Resend o SMTP. Devuelve True si se envió."""
+    # 1) Resend (prioridad si está configurado)
+    api_key = os.getenv("RESEND_API_KEY")
+    from_resend = (os.getenv("RESEND_FROM") or "Cotizador <onboarding@resend.dev>").strip()
+    if api_key:
+        try:
+            import httpx
+            r = httpx.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": from_resend,
+                    "to": [to_email],
+                    "subject": "Restablecer contraseña - Cotizador",
+                    "html": f'<p>Restablece tu contraseña haciendo clic en:</p><p><a href="{reset_link}">{reset_link}</a></p><p>El enlace caduca en {RESET_TOKEN_EXPIRY_HOURS} horas.</p>',
+                },
+                timeout=10.0,
+            )
+            return r.status_code == 200
+        except Exception:
+            return False
+    # 2) SMTP (alternativa)
+    host = os.getenv("SMTP_HOST")
+    user_smtp = os.getenv("SMTP_USER")
+    password_smtp = os.getenv("SMTP_PASSWORD")
+    from_email = os.getenv("SMTP_FROM", user_smtp)
+    if not host or not user_smtp or not password_smtp:
+        return False
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        port = int(os.getenv("SMTP_PORT", "587"))
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Restablecer contraseña - Cotizador"
+        msg["From"] = from_email
+        msg["To"] = to_email
+        text = f"Restablece tu contraseña en: {reset_link}\n\nEl enlace caduca en {RESET_TOKEN_EXPIRY_HOURS} horas."
+        msg.attach(MIMEText(text, "plain"))
+        with smtplib.SMTP(host, port) as server:
+            server.starttls()
+            server.login(user_smtp, password_smtp)
+            server.sendmail(from_email, to_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordBody, db: Session = Depends(get_db)):
+    """Solicita restablecer contraseña. Siempre devuelve éxito para no revelar si el email existe."""
+    email = (body.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email obligatorio")
+    user = db.query(User).filter(User.email == email).first()
+    if not user or user.password_hash == GOOGLE_MARKER:
+        return {"message": "Si el correo existe, recibirás un enlace para restablecer tu contraseña."}
+    token = secrets.token_urlsafe(32)
+    expires_at = (datetime.utcnow() + timedelta(hours=RESET_TOKEN_EXPIRY_HOURS)).isoformat() + "Z"
+    db.add(PasswordResetToken(email=email, token=token, expires_at=expires_at))
+    db.commit()
+    frontend_url = (os.getenv("FRONTEND_URL") or os.getenv("NEXT_PUBLIC_APP_URL") or "http://localhost:3000").rstrip("/")
+    reset_link = f"{frontend_url}/restablecer-clave?token={token}"
+    sent = _send_reset_email(email, reset_link)
+    if not sent:
+        pass
+    return {"message": "Si el correo existe, recibirás un enlace para restablecer tu contraseña."}
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordBody, db: Session = Depends(get_db)):
+    """Restablece la contraseña con el token recibido por email."""
+    token = (body.token or "").strip()
+    new_password = (body.new_password or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Token obligatorio")
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
+    row = db.query(PasswordResetToken).filter(PasswordResetToken.token == token).first()
+    if not row:
+        raise HTTPException(status_code=400, detail="Enlace inválido o caducado")
+    try:
+        expires = datetime.fromisoformat(row.expires_at.replace("Z", ""))
+    except Exception:
+        expires = datetime.min
+    if datetime.utcnow() > expires:
+        db.delete(row)
+        db.commit()
+        raise HTTPException(status_code=400, detail="Enlace caducado. Solicita uno nuevo.")
+    user = db.query(User).filter(User.email == row.email).first()
+    if not user or user.password_hash == GOOGLE_MARKER:
+        db.delete(row)
+        db.commit()
+        raise HTTPException(status_code=400, detail="Enlace inválido")
+    user.password_hash = bcrypt.hashpw(
+        new_password.encode("utf-8"),
+        bcrypt.gensalt(),
+    ).decode("utf-8")
+    db.delete(row)
+    db.commit()
+    return {"message": "Contraseña actualizada. Ya puedes iniciar sesión."}

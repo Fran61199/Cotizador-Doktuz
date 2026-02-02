@@ -136,9 +136,9 @@ export default function LoginPage() {
           </button>
         </div>
         <div className="login-forgot-row">
-          <a href="#" className="login-forgot" onClick={(e) => e.preventDefault()}>
-            ¿Te olvidaste tu contraseña?
-          </a>
+          <Link href="/olvide-clave" className="login-forgot">
+            Olvidé mi contraseña
+          </Link>
         </div>
         {error && (
           <p className="login-error">
@@ -151,6 +151,9 @@ export default function LoginPage() {
         <button type="submit" className="login-btn-submit" disabled={loading}>
           {loading ? 'Ingresando…' : 'Iniciar Sesión'}
         </button>
+        <p className="login-register-link">
+          ¿No tienes cuenta? <Link href="/registro">Registrarse</Link>
+        </p>
       </form>
       </div>
     </main>

@@ -234,6 +234,55 @@ html, body {
   text-decoration: underline;
 }
 
+.login-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  color: var(--text-primary, #1f2937);
+}
+
+.login-intro {
+  font-size: 0.875rem;
+  color: var(--text-muted, #6b7280);
+  margin: 0 0 1rem;
+}
+
+.login-back-link {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: #006dad;
+  text-decoration: none;
+  margin-bottom: 1rem;
+}
+.login-back-link:hover {
+  text-decoration: underline;
+}
+
+.login-register-link {
+  font-size: 0.875rem;
+  margin-top: 1rem;
+  text-align: center;
+  color: var(--text-muted, #6b7280);
+}
+
+.login-register-link a {
+  color: #006dad;
+  text-decoration: none;
+}
+
+.login-register-link a:hover {
+  text-decoration: underline;
+}
+
+.login-success-msg {
+  font-size: 0.875rem;
+  color: #059669;
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  background: #ecfdf5;
+  border-radius: 0.375rem;
+}
+
 .login-error {
   color: #dc2626;
   font-size: 0.875rem;

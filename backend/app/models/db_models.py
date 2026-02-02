@@ -5,12 +5,21 @@ from app.database import Base
 
 
 class User(Base):
-    """Usuarios para login con email y contraseña."""
+    """Usuarios para login con email y contraseña o Google."""
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
     name = Column(String(255), nullable=True)
+
+
+class PasswordResetToken(Base):
+    """Tokens para restablecer contraseña (caducan)."""
+    __tablename__ = "password_reset_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    token = Column(String(64), nullable=False, unique=True, index=True)
+    expires_at = Column(String(32), nullable=False)  # ISO datetime
 
 
 class Test(Base):
