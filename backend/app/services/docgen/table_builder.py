@@ -1,13 +1,38 @@
 # app/services/docgen/table_builder.py
 """Construcción de tabla unificada para PPT."""
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
 
-from app.constants import CRA_CLASSIFICATIONS, CLASSIFICATION_LETTER, CRA_DESCRIPTIONS, TYPE_LABELS
+from app.constants import TYPE_LABELS
 from . import config
 from .helpers import set_cell_margins_zero, make_spacer_row
+
+# Tipo: (letter, name, category, desc, classification) — ver build.CRAItem
+CRAItemRow = Tuple[str, str, str, str, str]
+
+
+def _cra_cell_value(
+    letter: str,
+    name: str,
+    classification: str,
+    get_val: Callable[[str, str, str], str],
+    group_defs: List[Tuple[str, List[str]]],
+) -> List[str]:
+    """
+    Valor por columna para una fila CRA.
+    - Adicional: precio (S/ XX.XX) por cada (proto, tipo).
+    - Condicional / Requisito: letra (C o R) en todas las columnas.
+    """
+    values = []
+    for proto, tps in group_defs:
+        for t in tps:
+            if classification == "adicional":
+                values.append(get_val(name, proto, t))
+            else:
+                values.append(letter)
+    return values
 
 
 def add_unified_table(
@@ -19,7 +44,7 @@ def add_unified_table(
     get_num_val,
     skip_total_row: bool,
     clinic_totals: List,
-    cra_items: List[Tuple[str, str, str, str]],
+    cra_items: List[CRAItemRow],
 ) -> None:
     left, top, width, _ = anchor_rect
     total_type_cols = sum(len(tps) for _, tps in group_defs)
@@ -33,7 +58,10 @@ def add_unified_table(
     spacer = config.BLANK_ROWS_BETWEEN_SECTIONS
     r2 = (2 + len(clinic_totals)) if clinic_totals else 0
     r3 = (2 + len(cra_items)) if cra_items else 0
-    total_rows = r1 + (spacer if (r2 or r3) else 0) + r2 + (spacer if r3 else 0) + r3
+    # Espacio entre sección 1 y (clínica o CRA); segundo espacio solo entre clínica y CRA (no si solo CRA)
+    spacer_after_r1 = spacer if (r2 or r3) else 0
+    spacer_before_cra = spacer if (r3 and r2) else 0
+    total_rows = r1 + spacer_after_r1 + r2 + spacer_before_cra + r3
     table_height = total_rows * Inches(config.ROW_HEIGHT_INCHES)
 
     font_header = max(6, 10 - total_rows // 10)
@@ -149,7 +177,9 @@ def add_unified_table(
                 make_spacer_row(table, out_row, cols)
                 out_row += 1
 
+    # --- Tabla "Exámenes condicionales / adicionales / requisitos" ---
     if cra_items:
+        # Fila título
         c0 = table.cell(out_row, 0)
         c0.text = "Exámenes condicionales / adicionales / requisitos"
         c0.merge(table.cell(out_row, cols - 1))
@@ -157,6 +187,7 @@ def add_unified_table(
             table.cell(out_row, c).text_frame.paragraphs[0].font.bold = True
             table.cell(out_row, c).text_frame.paragraphs[0].font.size = Pt(font_header)
         out_row += 1
+        # Fila cabecera: NOMBRE DE PRUEBA | INGRESO | PERIÓDICO | RETIRO
         table.cell(out_row, 0).text = "NOMBRE DE PRUEBA"
         cur_col = 1
         for proto, tps in group_defs:
@@ -167,12 +198,13 @@ def add_unified_table(
             table.cell(out_row, c).text_frame.paragraphs[0].font.bold = True
             table.cell(out_row, c).text_frame.paragraphs[0].font.size = Pt(font_header)
         out_row += 1
-        for letter, name, category, desc in cra_items:
-            c0 = table.cell(out_row, 0)
-            c0.text = f"({letter}) {name} ({category}) — {desc}"
-            c0.text_frame.word_wrap = True
-            for c in range(1, cols):
-                table.cell(out_row, c).text = letter
+        # Filas de datos CRA: (C/R/A) Nombre (Categoría) — Descripción | valores por columna
+        for letter, name, category, desc, classification in cra_items:
+            table.cell(out_row, 0).text = f"({letter}) {name} ({category}) — {desc}"
+            table.cell(out_row, 0).text_frame.word_wrap = True
+            cell_values = _cra_cell_value(letter, name, classification, get_val, group_defs)
+            for col_idx, value in enumerate(cell_values, start=1):
+                table.cell(out_row, col_idx).text = value
             for c in range(cols):
                 table.cell(out_row, c).text_frame.paragraphs[0].font.size = Pt(font_small)
             out_row += 1

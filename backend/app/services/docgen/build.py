@@ -1,8 +1,8 @@
 # app/services/docgen/build.py
 """Orquestador de generación PPT."""
 import unicodedata
-from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from pptx import Presentation
 from pptx.util import Inches
@@ -10,9 +10,17 @@ from pptx.util import Inches
 from app.constants import CRA_CLASSIFICATIONS, CLASSIFICATION_LETTER, CRA_DESCRIPTIONS
 from app.models.schemas import GenerationRequest
 
-from .config import ROW_HEIGHT_INCHES
 from .helpers import must_template, find_table_anchor, fill_cover_fields
 from .table_builder import add_unified_table
+
+
+class CRAItem(NamedTuple):
+    """Fila de la tabla 'Exámenes condicionales / adicionales / requisitos'."""
+    letter: str          # "C" | "R" | "A"
+    name: str            # nombre normalizado de la prueba
+    category: str        # ej. Laboratorio
+    desc: str            # detalle o "Examen adicional"
+    classification: str  # "condicional" | "requisito" | "adicional"
 
 
 def _normalize_cra_name(s: str) -> str:
@@ -21,6 +29,57 @@ def _normalize_cra_name(s: str) -> str:
         return ""
     out = "".join(c for c in s if unicodedata.category(c) != "Cf")
     return out.strip()
+
+
+def _build_cra_items(
+    selections: list,
+    main_table_normalized_names: Optional[set] = None,
+) -> List[CRAItem]:
+    """
+    Arma la lista de ítems CRA (condicional / requisito / adicional) para la tabla del PPT.
+    - Una sola fila por nombre de prueba (deduplicado por nombre normalizado).
+    - Excluye nombres vacíos, sin alfanuméricos o sin tipos.
+    - Si se pasa main_table_normalized_names, solo incluye pruebas que están en la tabla principal
+      (evita fila vacía cuando solo Lima: no se cuelan ítems fantasma).
+    - Adicional: desc = "Examen adicional"; resto: desc = detail o "—".
+    """
+    items: List[CRAItem] = []
+    seen_names: set = set()
+
+    for s in selections:
+        types = getattr(s, "types", None) or []
+        if not types:
+            continue
+
+        raw_name = (getattr(s, "name", "") or "").strip()
+        name = _normalize_cra_name(raw_name)
+        if not name or not any(c.isalnum() for c in name):
+            continue
+
+        if main_table_normalized_names is not None and name not in main_table_normalized_names:
+            continue
+
+        cl = (getattr(s, "classification", None) or "").strip() or None
+        if not cl or cl not in CRA_CLASSIFICATIONS or name in seen_names:
+            continue
+
+        seen_names.add(name)
+        letter = CLASSIFICATION_LETTER.get(cl, "?")
+
+        if cl == "adicional":
+            desc = CRA_DESCRIPTIONS.get("adicional", "Examen adicional")
+        else:
+            desc = (getattr(s, "detail", "") or "").strip() or "—"
+
+        category = (s.category or "").strip()
+        row_text = f"({letter}) {name} ({category}) — {desc}"
+        alnum_count = sum(1 for c in row_text if c.isalnum())
+        if alnum_count < 2:
+            continue
+
+        items.append(CRAItem(letter=letter, name=name, category=category, desc=desc, classification=cl))
+
+    return items
 
 
 def build_ppt(payload: GenerationRequest, out_path: str) -> str:
@@ -91,6 +150,10 @@ def build_ppt(payload: GenerationRequest, out_path: str) -> str:
                     return "-"
                 cl = getattr(s, "classification", None) or None
                 if cl in CRA_CLASSIFICATIONS:
+                    if cl == "adicional":
+                        ov = (s.overrides or {}).get(t)
+                        price = ov if ov is not None else s.prices.get(t, 0.0)
+                        return _fmt_price(price)
                     return CLASSIFICATION_LETTER.get(cl, "-")
                 ov = (s.overrides or {}).get(t)
                 price = ov if ov is not None else s.prices.get(t, 0.0)
@@ -111,35 +174,19 @@ def build_ppt(payload: GenerationRequest, out_path: str) -> str:
         return None
 
     clinic_totals = getattr(payload, "clinic_totals", None) or []
-    # Siempre mostrar la fila TOTAL de la primera tabla (Lima y Provincia)
-    skip_total = False
 
-    cra_items: List[Tuple[str, str, str, str]] = []
-    seen_cra: set = set()
-    for s in (payload.selections or []):
-        types = getattr(s, "types", None) or []
-        if not types:
-            continue
-        raw_name = (getattr(s, "name", "") or "").strip()
-        name = _normalize_cra_name(raw_name)
-        if not name:
-            continue
-        if not any(c.isalnum() for c in name):
-            continue
-        cl = (getattr(s, "classification", None) or "").strip() or None
-        if not cl or cl not in CRA_CLASSIFICATIONS or name in seen_cra:
-            continue
-        seen_cra.add(name)
-        letter = CLASSIFICATION_LETTER.get(cl, "?")
-        if cl == "adicional":
-            desc = CRA_DESCRIPTIONS.get("adicional", "Examen adicional")
-        else:
-            desc = (getattr(s, "detail", "") or "").strip() or "—"
-        category = (s.category or "").strip()
-        row_text = f"({letter}) {name} ({category}) — {desc}"
-        if not any(c.isalnum() for c in row_text):
-            continue
-        cra_items.append((letter, name, category, desc))
+    main_table_normalized_names = {
+        _normalize_cra_name((n or "").strip())
+        for n in tests_order
+    }
+    main_table_normalized_names = {
+        n for n in main_table_normalized_names
+        if n and any(c.isalnum() for c in n)
+    }
+    cra_items = _build_cra_items(
+        payload.selections or [],
+        main_table_normalized_names=main_table_normalized_names,
+    )
 
     add_unified_table(
         slide=anchor_slide,
@@ -148,7 +195,7 @@ def build_ppt(payload: GenerationRequest, out_path: str) -> str:
         tests_with_meta=tests_with_meta,
         get_val=_get_val,
         get_num_val=_get_num_val,
-        skip_total_row=skip_total,
+        skip_total_row=False,
         clinic_totals=clinic_totals,
         cra_items=cra_items,
     )
