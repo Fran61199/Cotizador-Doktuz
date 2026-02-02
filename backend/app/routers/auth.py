@@ -10,7 +10,6 @@ router = APIRouter()
 
 # Marcador para usuarios solo Google (no usan contraseña)
 GOOGLE_MARKER = "GOOGLE_ONLY"
-ALLOWED_DOMAIN = "doktuz.com"
 
 
 class CredentialsBody(BaseModel):
@@ -47,9 +46,9 @@ def verify_credentials(body: CredentialsBody, db: Session = Depends(get_db)):
 
 @router.get("/allowed")
 def check_allowed(email: str = Query(...), db: Session = Depends(get_db)):
-    """Verifica si un email está autorizado (para Google sign-in)."""
+    """Verifica si un email está autorizado (Google OAuth: cualquier dominio si está en la tabla)."""
     email_trim = (email or "").strip().lower()
-    if not email_trim or not email_trim.endswith(f"@{ALLOWED_DOMAIN}"):
+    if not email_trim:
         return {"allowed": False}
     user = db.query(User).filter(User.email == email_trim).first()
     return {"allowed": user is not None}
@@ -64,12 +63,10 @@ def list_users(db: Session = Depends(get_db)):
 
 @router.post("/users", response_model=UserResponse)
 def add_user(body: AddUserBody, db: Session = Depends(get_db)):
-    """Añade un usuario autorizado (Google @doktuz.com)."""
+    """Añade un usuario autorizado para Google OAuth (cualquier email, ej. @doktuz.com o @gmail.com)."""
     email = (body.email or "").strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Email obligatorio")
-    if not email.endswith(f"@{ALLOWED_DOMAIN}"):
-        raise HTTPException(status_code=400, detail=f"Solo se permiten emails @{ALLOWED_DOMAIN}")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="El usuario ya existe")
     name = (body.name or "").strip() or None

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Añade un usuario autorizado para Google sign-in (solo @doktuz.com).
+Añade un usuario autorizado para Google OAuth (cualquier email: @doktuz.com, @gmail.com, etc.).
 No requiere contraseña: usa el marcador GOOGLE_ONLY.
 
 Uso (desde backend/):
-  python -m scripts.add_google_user franco.salgado@doktuz.com
-  python -m scripts.add_google_user franco.salgado@doktuz.com "Franco Salgado"
+  python -m scripts.add_google_user usuario@gmail.com
+  python -m scripts.add_google_user usuario@gmail.com "Nombre"
 
 Usa la variable de entorno DATABASE_URL (la de Neon para producción).
 """
@@ -28,16 +28,12 @@ from app.models.db_models import User
 from sqlalchemy.orm import Session
 
 GOOGLE_MARKER = "GOOGLE_ONLY"
-ALLOWED_DOMAIN = "doktuz.com"
 
 
 def add_google_user(email: str, name: str | None = None) -> None:
     email = email.strip().lower()
     if not email:
         print("Error: email obligatorio.")
-        sys.exit(1)
-    if not email.endswith(f"@{ALLOWED_DOMAIN}"):
-        print(f"Error: solo se permiten emails @{ALLOWED_DOMAIN}")
         sys.exit(1)
 
     with Session(engine) as db:
@@ -56,8 +52,8 @@ def add_google_user(email: str, name: str | None = None) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Uso: python -m scripts.add_google_user <email@doktuz.com> [nombre]")
-        print("Ejemplo: python -m scripts.add_google_user franco.salgado@doktuz.com")
+        print("Uso: python -m scripts.add_google_user <email> [nombre]")
+        print("Ejemplo: python -m scripts.add_google_user usuario@gmail.com")
         sys.exit(1)
     email = sys.argv[1]
     name = sys.argv[2] if len(sys.argv) > 2 else None

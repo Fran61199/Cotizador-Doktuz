@@ -37,6 +37,7 @@ export function getExecutiveTitle(executive: string): string {
 /**
  * Obtiene el nombre del ejecutivo según el usuario logueado (email o nombre).
  * Se usa para rellenar automáticamente "quién genera el PPT".
+ * Si el usuario no está mapeado (ej. Gmail), se usa el nombre de la sesión (Google).
  */
 export function getExecutiveFromSession(
   email: string | null | undefined,
@@ -46,5 +47,7 @@ export function getExecutiveFromSession(
   if (e && EMAIL_TO_EXECUTIVE[e]) return EMAIL_TO_EXECUTIVE[e];
   const n = (name || '').trim();
   if (n && EXECUTIVE_NAMES.includes(n)) return n;
+  // Usuario no mapeado (ej. Gmail): usar nombre de la sesión
+  if (n) return n;
   return EXECUTIVE_NAMES[0] ?? 'Maria Alejandra Coria';
 }

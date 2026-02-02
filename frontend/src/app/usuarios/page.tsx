@@ -38,10 +38,6 @@ export default function UsuariosPage() {
       toast.error('Email obligatorio');
       return;
     }
-    if (!email.endsWith('@doktuz.com')) {
-      toast.error('Solo se permiten emails @doktuz.com');
-      return;
-    }
     setAddLoading(true);
     try {
       await addUser(email, newName.trim() || undefined);
@@ -68,18 +64,18 @@ export default function UsuariosPage() {
             <section className="usuarios-section">
               <h6 className="section-title">Usuarios autorizados</h6>
               <p className="small text-muted mb-3">
-                Solo usuarios con email @doktuz.com pueden iniciar sesión con Google. Añade emails aquí para autorizarlos.
+                Usuarios autorizados para iniciar sesión con Google (OAuth). Añade cualquier email (ej. @doktuz.com o @gmail.com).
               </p>
 
               <div className="app-card mb-4">
                 <h6 className="small fw-semibold mb-3">Añadir usuario</h6>
                 <form onSubmit={handleAdd} className="d-flex flex-wrap gap-2 align-items-end">
                   <div>
-                    <label className="form-label small text-muted mb-1">Email @doktuz.com</label>
+                    <label className="form-label small text-muted mb-1">Email</label>
                     <input
                       type="email"
                       className="form-control form-control-sm app-input"
-                      placeholder="nombre@doktuz.com"
+                      placeholder="ej. usuario@gmail.com o nombre@doktuz.com"
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                       style={{ minWidth: 220 }}
