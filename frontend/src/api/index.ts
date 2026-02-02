@@ -2,6 +2,7 @@ export { api, getApiError, type ApiError } from './client';
 export { getClinics, getCatalog } from './catalog';
 export { getNextProposalNumber } from './proposal';
 export { createDocuments } from './generator';
+export { getUsers, addUser, type UserItem } from './users';
 export {
   downloadPricesTemplate,
   importPricesFile,

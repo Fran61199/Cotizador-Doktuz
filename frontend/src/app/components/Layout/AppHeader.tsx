@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRef, useEffect, useState } from 'react';
 import { signOut, useSession } from 'next-auth/react';
+import { useTheme } from '@/contexts/ThemeContext';
 
 type AppHeaderProps = {
   onGenerate?: () => void;
@@ -49,8 +50,37 @@ function IconUser() {
   );
 }
 
+function IconUsers() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function IconSun() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </svg>
+  );
+}
+
+function IconMoon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
+
 export default function AppHeader({ onGenerate, generating }: AppHeaderProps) {
   const { data: session } = useSession();
+  const { theme, toggleTheme } = useTheme();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -108,6 +138,18 @@ export default function AppHeader({ onGenerate, generating }: AppHeaderProps) {
             </button>
           )}
 
+          <button
+            type="button"
+            className="app-nav-profile-btn app-nav-theme-toggle"
+            onClick={toggleTheme}
+            aria-label={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
+            title={theme === 'light' ? 'Modo oscuro' : 'Modo claro'}
+          >
+            <span className="app-nav-profile-avatar">
+              {theme === 'light' ? <IconMoon /> : <IconSun />}
+            </span>
+          </button>
+
           <div className="app-nav-profile-wrap" ref={dropdownRef}>
             <button
               type="button"
@@ -140,6 +182,16 @@ export default function AppHeader({ onGenerate, generating }: AppHeaderProps) {
                     <IconDocument />
                   </span>
                   <span>Pruebas</span>
+                </Link>
+                <Link
+                  href="/usuarios"
+                  className="app-nav-profile-item app-nav-profile-link"
+                  onClick={() => setDropdownOpen(false)}
+                >
+                  <span className="app-nav-profile-icon">
+                    <IconUsers />
+                  </span>
+                  <span>Usuarios</span>
                 </Link>
                 <button
                   type="button"

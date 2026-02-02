@@ -49,7 +49,20 @@ const handler = NextAuth({
       }
       return session;
     },
-    async signIn() {
+    async signIn({ user, account }) {
+      if (account?.provider === 'google' && user?.email) {
+        try {
+          const res = await fetch(
+            `${apiUrl}/api/auth/allowed?email=${encodeURIComponent(user.email)}`
+          );
+          const data = await res.json();
+          if (!data?.allowed) {
+            return false;
+          }
+        } catch {
+          return false;
+        }
+      }
       return true;
     },
     async redirect({ url, baseUrl }) {

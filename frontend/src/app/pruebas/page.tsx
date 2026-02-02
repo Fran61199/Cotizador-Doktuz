@@ -214,17 +214,16 @@ export default function PruebasPage() {
         ))}
         <AppHeader />
         <main className="app-content">
-          <div className="container" style={{ maxWidth: 1200 }}>
-            <section className="mb-4">
+          <div className="container pruebas-page-container" style={{ maxWidth: 1200 }}>
+            <section className="mb-4 pruebas-section">
               <h6 className="section-title">1. Buscar prueba</h6>
               <div className="app-card pruebas-search-card">
                 <input
                   type="text"
-                  className="form-control form-control-sm app-input"
+                  className="form-control form-control-sm app-input pruebas-search-input"
                   placeholder="Buscar por nombre…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ maxWidth: 280 }}
                 />
                 {searchLoading && <span className="text-muted small ms-2">Buscando…</span>}
                 {searchResults !== null && !searchLoading && (
@@ -276,10 +275,10 @@ export default function PruebasPage() {
               </div>
             </section>
 
-            <section className="mb-4">
+            <section className="mb-4 pruebas-section">
               <h6 className="section-title">2. Importar precios</h6>
               <div className="app-card pruebas-import-card">
-                <div className="d-flex flex-wrap align-items-center gap-2">
+                <div className="pruebas-import-actions d-flex flex-wrap align-items-center gap-2">
                   <button
                     type="button"
                     className="btn btn-outline-secondary btn-sm"
@@ -324,7 +323,7 @@ export default function PruebasPage() {
                     {priceImportLoading ? 'Cargando…' : 'Cargar'}
                   </label>
                   {priceImportResult && priceImportResult.errors.length > 0 && (
-                    <span className="small text-warning ms-1">
+                    <span className="small text-warning pruebas-import-errors">
                       {priceImportResult.errors.length} error(es)
                     </span>
                   )}
@@ -332,13 +331,12 @@ export default function PruebasPage() {
               </div>
             </section>
 
-            <section>
+            <section className="pruebas-section">
               <h6 className="section-title">3. Precios por sede</h6>
               <div className="app-card">
-              <div className="mb-3 d-flex align-items-center gap-3 flex-wrap">
+              <div className="pruebas-toolbar mb-3">
                 <select
-                  className="form-select form-select-sm app-input"
-                  style={{ maxWidth: 200 }}
+                  className="form-select form-select-sm app-input pruebas-clinic-select"
                   value={selectedClinic}
                   onChange={(e) => setSelectedClinic(e.target.value)}
                 >
@@ -348,7 +346,7 @@ export default function PruebasPage() {
                   ))}
                 </select>
                 <div className="position-relative pruebas-table-search-wrap">
-                  <span className="position-absolute top-50 start-0 translate-middle-y ps-2 text-muted" style={{ fontSize: '0.8rem' }} aria-hidden>
+                  <span className="position-absolute top-50 start-0 translate-middle-y ps-2 text-muted pruebas-search-icon" aria-hidden>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="11" cy="11" r="8"/>
                       <path d="m21 21-4.35-4.35"/>
@@ -356,26 +354,23 @@ export default function PruebasPage() {
                   </span>
                   <input
                     type="text"
-                    className="form-control form-control-sm app-input ps-3"
-                    style={{ width: 160 }}
+                    className="form-control form-control-sm app-input pruebas-table-search-input"
                     value={tableSearchQuery}
                     onChange={(e) => setTableSearchQuery(e.target.value)}
                     placeholder="Buscar en tabla…"
                   />
                 </div>
-                <form onSubmit={handleAddPrice} className="d-flex flex-wrap align-items-center gap-2">
+                <form onSubmit={handleAddPrice} className="pruebas-form-add">
                   <input
                     type="text"
-                    className="form-control form-control-sm app-input"
-                    style={{ width: 140 }}
+                    className="form-control form-control-sm app-input pruebas-input-name"
                     value={newTestName}
                     onChange={(e) => setNewTestName(e.target.value)}
                     placeholder="Nueva prueba"
                   />
                   <input
                     type="text"
-                    className="form-control form-control-sm app-input"
-                    style={{ width: 100 }}
+                    className="form-control form-control-sm app-input pruebas-input-category"
                     value={newTestCategory}
                     onChange={(e) => setNewTestCategory(e.target.value)}
                     placeholder="Categoría"
@@ -392,8 +387,7 @@ export default function PruebasPage() {
                     type="number"
                     min={0}
                     step={0.01}
-                    className="form-control form-control-sm app-input text-end"
-                    style={{ width: 60 }}
+                    className="form-control form-control-sm app-input text-end pruebas-input-ing"
                     value={newIngreso === '' ? '' : newIngreso}
                     onChange={(e) => setNewIngreso(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                     placeholder="Ing"
@@ -402,8 +396,7 @@ export default function PruebasPage() {
                     type="number"
                     min={0}
                     step={0.01}
-                    className="form-control form-control-sm app-input text-end"
-                    style={{ width: 60 }}
+                    className="form-control form-control-sm app-input text-end pruebas-input-per"
                     value={newPeriodico === '' ? '' : newPeriodico}
                     onChange={(e) => setNewPeriodico(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                     placeholder="Per"
@@ -412,13 +405,12 @@ export default function PruebasPage() {
                     type="number"
                     min={0}
                     step={0.01}
-                    className="form-control form-control-sm app-input text-end"
-                    style={{ width: 60 }}
+                    className="form-control form-control-sm app-input text-end pruebas-input-ret"
                     value={newRetiro === '' ? '' : newRetiro}
                     onChange={(e) => setNewRetiro(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                     placeholder="Ret"
                   />
-                  <button type="submit" className="btn btn-primary btn-sm" disabled={addLoading}>
+                  <button type="submit" className="btn btn-primary btn-sm pruebas-btn-add" disabled={addLoading}>
                     {addLoading ? '…' : '+'}
                   </button>
                 </form>
@@ -535,8 +527,8 @@ export default function PruebasPage() {
         </main>
 
         {deleteModalTest && (
-          <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <div className="modal-dialog modal-dialog-centered modal-sm">
+          <div className="modal show d-block pruebas-delete-modal" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <div className="modal-dialog modal-dialog-centered modal-sm pruebas-delete-dialog">
               <div className="modal-content">
                 <div className="modal-header py-2">
                   <h6 className="modal-title small">{deleteModalTest.test_name}</h6>
