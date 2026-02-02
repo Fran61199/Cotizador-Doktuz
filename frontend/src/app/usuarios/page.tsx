@@ -64,10 +64,14 @@ export default function UsuariosPage() {
     }
     setInviteLoading(true);
     try {
-      await inviteUser(email, inviteName.trim() || undefined);
+      const res = await inviteUser(email, inviteName.trim() || undefined);
       setInviteEmail('');
       setInviteName('');
-      toast.success('Usuario creado. Se envió la contraseña por email (revisa spam). Si no llega, puede usar Olvidé mi contraseña.');
+      if (res.email_sent) {
+        toast.success('Usuario creado. Se envió la contraseña por email (revisa spam).');
+      } else {
+        toast.success('Usuario creado. No se pudo enviar el correo; puede usar Olvidé mi contraseña.');
+      }
       loadUsers();
     } catch (err) {
       toast.error(getApiError(err).detail || 'No se pudo invitar');

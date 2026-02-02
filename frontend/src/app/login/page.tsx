@@ -9,18 +9,32 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [registeredMessage, setRegisteredMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const err = params.get('error');
+    const registered = params.get('registered');
+    const emailSent = params.get('email_sent');
     if (err === 'CredentialsSignin') {
-      // Mostrar el error solo después de un breve retraso para evitar parpadeo
-      // cuando el login tiene éxito y la página redirige al instante
       const t = setTimeout(() => {
         setError('Credenciales inválidas. Verifica tu email y contraseña.');
       }, 150);
       return () => clearTimeout(t);
+    }
+    if (registered === '1') {
+      setRegisteredMessage(
+        emailSent === '1'
+          ? 'Cuenta creada. Se te envió un correo de bienvenida a tu email.'
+          : 'Cuenta creada. Ya puedes iniciar sesión.'
+      );
+      if (typeof window !== 'undefined' && window.history.replaceState) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('registered');
+        url.searchParams.delete('email_sent');
+        window.history.replaceState({}, '', url.pathname + url.search);
+      }
     }
   }, []);
 
@@ -94,6 +108,11 @@ export default function LoginPage() {
 
       <div className="login-divider">O</div>
 
+      {registeredMessage && (
+        <p className="login-success-msg" role="alert">
+          {registeredMessage}
+        </p>
+      )}
       <form className="login-form" onSubmit={handleCredentialsSubmit}>
         <label htmlFor="email" className="login-label">Email:</label>
         <input

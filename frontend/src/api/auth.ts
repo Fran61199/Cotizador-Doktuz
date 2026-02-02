@@ -2,9 +2,10 @@ import { api, getApiError } from './client';
 
 export type RegisterPayload = { email: string; password: string; name?: string };
 export type UserAuthResponse = { id: number; email: string; name: string | null };
+export type RegisterResponse = UserAuthResponse & { email_sent: boolean };
 
-export async function register(payload: RegisterPayload): Promise<UserAuthResponse> {
-  const { data } = await api.post<UserAuthResponse>('/api/auth/register', payload);
+export async function register(payload: RegisterPayload): Promise<RegisterResponse> {
+  const { data } = await api.post<RegisterResponse>('/api/auth/register', payload);
   return data;
 }
 

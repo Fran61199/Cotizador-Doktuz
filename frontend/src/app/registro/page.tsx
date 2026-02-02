@@ -27,12 +27,12 @@ export default function RegistroPage() {
     }
     setLoading(true);
     try {
-      await registerApi({
+      const res = await registerApi({
         email: email.trim(),
         password,
         name: name.trim() || undefined,
       });
-      router.push('/login?registered=1');
+      router.push(`/login?registered=1&email_sent=${res.email_sent ? '1' : '0'}`);
     } catch (err) {
       const apiErr = getApiError(err);
       const msg = apiErr.detail || apiErr.message || 'No se pudo registrar.';

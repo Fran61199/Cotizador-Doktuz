@@ -30,6 +30,20 @@ class UserResponse(BaseModel):
     name: str | None
 
 
+class RegisterResponse(BaseModel):
+    id: int
+    email: str
+    name: str | None
+    email_sent: bool
+
+
+class InviteResponse(BaseModel):
+    id: int
+    email: str
+    name: str | None
+    email_sent: bool
+
+
 class AddUserBody(BaseModel):
     email: str
     name: str | None = None
@@ -197,7 +211,7 @@ def _send_welcome_email(to_email: str, name: str | None, login_url: str) -> bool
         return False
 
 
-@router.post("/users/invite", response_model=UserResponse)
+@router.post("/users/invite", response_model=InviteResponse)
 def invite_user(body: AddUserBody, db: Session = Depends(get_db)):
     """Crea un usuario con contraseña aleatoria y la envía por email. La tabla guarda solo el hash (bcrypt)."""
     email = (body.email or "").strip().lower()
@@ -206,7 +220,7 @@ def invite_user(body: AddUserBody, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="El usuario ya existe")
     name = (body.name or "").strip() or None
-    plain_password = secrets.token_urlsafe(12)
+    plain_password = "".join(str(secrets.randbelow(10)) for _ in range(6))
     password_hash = bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     user = User(email=email, password_hash=password_hash, name=name)
     db.add(user)
@@ -215,12 +229,12 @@ def invite_user(body: AddUserBody, db: Session = Depends(get_db)):
     frontend_url = (os.getenv("FRONTEND_URL") or os.getenv("NEXT_PUBLIC_APP_URL") or "http://localhost:3000").rstrip("/")
     login_url = f"{frontend_url}/login"
     sent = _send_invite_email(email, plain_password, login_url)
-    return UserResponse(id=user.id, email=user.email, name=user.name)
+    return InviteResponse(id=user.id, email=user.email, name=user.name, email_sent=sent)
 
 
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", response_model=RegisterResponse)
 def register(body: RegisterBody, db: Session = Depends(get_db)):
-    """Registro con email y contraseña. Cualquier email."""
+    """Registro con email y contraseña. Cualquier email. Envía correo de bienvenida."""
     email = (body.email or "").strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Email obligatorio")
@@ -241,8 +255,8 @@ def register(body: RegisterBody, db: Session = Depends(get_db)):
     db.refresh(user)
     frontend_url = (os.getenv("FRONTEND_URL") or os.getenv("NEXT_PUBLIC_APP_URL") or "http://localhost:3000").rstrip("/")
     login_url = f"{frontend_url}/login"
-    _send_welcome_email(email, name, login_url)
-    return UserResponse(id=user.id, email=user.email, name=user.name)
+    email_sent = _send_welcome_email(email, name, login_url)
+    return RegisterResponse(id=user.id, email=user.email, name=user.name, email_sent=email_sent)
 
 
 def _send_reset_email(to_email: str, reset_link: str) -> bool:
