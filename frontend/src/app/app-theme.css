@@ -511,6 +511,8 @@ html, body {
   background-image: linear-gradient(to right bottom, rgb(34, 38, 52) 0%, rgb(11, 52, 77) 100%);
   border-bottom: 2px solid rgba(0, 0, 0, 0.1);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-nav-inner {
@@ -518,7 +520,10 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 @media (min-width: 768px) {
@@ -539,6 +544,8 @@ html, body {
   gap: 0.75rem;
   color: #fff;
   text-decoration: none;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .app-nav-brand:hover {
@@ -562,6 +569,9 @@ html, body {
   font-weight: 600;
   font-size: 0.875rem;
   letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (min-width: 768px) {
@@ -574,6 +584,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .app-nav-btn-generate {
@@ -1612,18 +1623,42 @@ html, body {
     padding-right: 0.5rem;
   }
   
+  /* Navbar: que no se corte en celulares */
+  .app-nav-inner {
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+  }
+  .app-nav-actions {
+    gap: 0.35rem;
+  }
+  .app-nav-btn-generate {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8125rem;
+  }
+  
   /* Dropdown del perfil compacto en mobile */
   .app-nav-profile-dropdown {
     right: 0;
     min-width: 200px;
     max-width: 240px;
   }
-  
-  /* Ocultar texto largo en mobile */
-  .app-nav-btn-generate {
-    padding: 0.4rem 0.6rem;
-  }
+}
 
+/* Pantallas muy estrechas: ocultar "Cotizador EMOs" para que no se corte el botón de usuario */
+@media (max-width: 400px) {
+  .app-nav-text {
+    display: none;
+  }
+  .app-nav-brand {
+    gap: 0;
+  }
+  .app-nav-btn-generate {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 767px) {
   /* ===== Página Pruebas - Mobile ===== */
   .pruebas-page-container {
     padding-left: 0.75rem;
