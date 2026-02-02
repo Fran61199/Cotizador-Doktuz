@@ -117,8 +117,13 @@ def _send_invite_email(to_email: str, plain_password: str, login_url: str) -> bo
                 },
                 timeout=10.0,
             )
+            if r.status_code != 200:
+                import logging
+                logging.warning("Resend invite email failed: status=%s body=%s", r.status_code, r.text)
             return r.status_code == 200
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.warning("Resend invite email error: %s", e)
             return False
     host = os.getenv("SMTP_HOST")
     user_smtp = os.getenv("SMTP_USER")
@@ -132,6 +137,55 @@ def _send_invite_email(to_email: str, plain_password: str, login_url: str) -> bo
         text = f"Se ha creado tu cuenta. Tu contraseña temporal es: {plain_password}\n\nInicia sesión: {login_url}\n\nRecomendamos cambiar la contraseña desde Olvidé mi contraseña después del primer acceso."
         msg = MIMEText(text, "plain")
         msg["Subject"] = "Tu cuenta en Cotizador - Contraseña de acceso"
+        msg["From"] = from_email
+        msg["To"] = to_email
+        with smtplib.SMTP(host, int(os.getenv("SMTP_PORT", "587"))) as server:
+            server.starttls()
+            server.login(user_smtp, password_smtp)
+            server.sendmail(from_email, to_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_welcome_email(to_email: str, name: str | None, login_url: str) -> bool:
+    """Envía correo de bienvenida al registrarse (Resend o SMTP)."""
+    import logging
+    api_key = os.getenv("RESEND_API_KEY")
+    from_resend = (os.getenv("RESEND_FROM") or "Cotizador <onboarding@resend.dev>").strip()
+    saludo = f"Hola, {name}." if name else "Hola."
+    if api_key:
+        try:
+            import httpx
+            r = httpx.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "from": from_resend,
+                    "to": [to_email],
+                    "subject": "Bienvenido a Cotizador",
+                    "html": f'<p>{saludo}</p><p>Tu cuenta está lista. Ya puedes iniciar sesión:</p><p><a href="{login_url}">{login_url}</a></p>',
+                },
+                timeout=10.0,
+            )
+            if r.status_code != 200:
+                logging.warning("Resend welcome email failed: status=%s body=%s", r.status_code, r.text)
+            return r.status_code == 200
+        except Exception as e:
+            logging.warning("Resend welcome email error: %s", e)
+            return False
+    host = os.getenv("SMTP_HOST")
+    user_smtp = os.getenv("SMTP_USER")
+    password_smtp = os.getenv("SMTP_PASSWORD")
+    from_email = os.getenv("SMTP_FROM", user_smtp)
+    if not host or not user_smtp or not password_smtp:
+        return False
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        text = f"{saludo}\n\nTu cuenta está lista. Ya puedes iniciar sesión en: {login_url}"
+        msg = MIMEText(text, "plain")
+        msg["Subject"] = "Bienvenido a Cotizador"
         msg["From"] = from_email
         msg["To"] = to_email
         with smtplib.SMTP(host, int(os.getenv("SMTP_PORT", "587"))) as server:
@@ -161,11 +215,6 @@ def invite_user(body: AddUserBody, db: Session = Depends(get_db)):
     frontend_url = (os.getenv("FRONTEND_URL") or os.getenv("NEXT_PUBLIC_APP_URL") or "http://localhost:3000").rstrip("/")
     login_url = f"{frontend_url}/login"
     sent = _send_invite_email(email, plain_password, login_url)
-    if not sent:
-        raise HTTPException(
-            status_code=503,
-            detail="Usuario creado pero no se pudo enviar el email. Configura RESEND_API_KEY o SMTP. El usuario puede usar Olvidé mi contraseña.",
-        )
     return UserResponse(id=user.id, email=user.email, name=user.name)
 
 
@@ -190,6 +239,9 @@ def register(body: RegisterBody, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+    frontend_url = (os.getenv("FRONTEND_URL") or os.getenv("NEXT_PUBLIC_APP_URL") or "http://localhost:3000").rstrip("/")
+    login_url = f"{frontend_url}/login"
+    _send_welcome_email(email, name, login_url)
     return UserResponse(id=user.id, email=user.email, name=user.name)
 
 

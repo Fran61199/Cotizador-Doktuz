@@ -67,7 +67,7 @@ export default function UsuariosPage() {
       await inviteUser(email, inviteName.trim() || undefined);
       setInviteEmail('');
       setInviteName('');
-      toast.success('Usuario creado. Se ha enviado la contraseña por email.');
+      toast.success('Usuario creado. Se envió la contraseña por email (revisa spam). Si no llega, puede usar Olvidé mi contraseña.');
       loadUsers();
     } catch (err) {
       toast.error(getApiError(err).detail || 'No se pudo invitar');

@@ -34,7 +34,9 @@ export default function RegistroPage() {
       });
       router.push('/login?registered=1');
     } catch (err) {
-      setError(getApiError(err).detail || 'No se pudo registrar.');
+      const apiErr = getApiError(err);
+      const msg = apiErr.detail || apiErr.message || 'No se pudo registrar.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,11 @@ export default function RegistroPage() {
             required
             minLength={6}
           />
-          {error && <p className="login-error">{error}</p>}
+          {error && (
+            <p className="login-error" role="alert">
+              {error}
+            </p>
+          )}
           <button type="submit" className="login-btn-submit" disabled={loading}>
             {loading ? 'Registrando…' : 'Crear cuenta'}
           </button>
