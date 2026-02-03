@@ -9,6 +9,7 @@ export const api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
   timeout: 20000,
+  withCredentials: true, // enviar cookies de sesión (necesario en prod para /api/backend)
 });
 
 export type ApiError = {

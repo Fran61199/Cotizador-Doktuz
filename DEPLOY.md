@@ -170,3 +170,13 @@ En [Google Cloud Console](https://console.cloud.google.com):
 
 - **Proposal counter**: Los números de propuesta (0001, 0002…) se guardan en un archivo JSON. En Render el disco es efímero, así que pueden reiniciarse al redeployar. Para persistencia total, habría que migrar a BD.
 - **Neon**: Si la conexión falla, asegúrate de que la URL termine con `?sslmode=require` si Neon lo requiere.
+
+---
+
+## "Sesión requerida" en producción
+
+Si en Usuarios u otras pantallas ves **"Sesión requerida"** en rojo:
+
+1. **NEXTAUTH_URL** en Vercel debe ser **exactamente** la URL del frontend (ej. `https://tu-app.vercel.app`), **sin barra final**. Si está mal, la cookie de sesión no se asocia al dominio correcto.
+2. **NEXTAUTH_SECRET** debe estar definida en Vercel (mismo valor que usaste al generar la sesión; si cambias el secret, los usuarios deben volver a iniciar sesión).
+3. Tras cambiar estas variables en Vercel, haz un **nuevo deploy** y prueba cerrar sesión, volver a entrar y abrir Usuarios.
