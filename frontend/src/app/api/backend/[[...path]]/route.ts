@@ -1,5 +1,6 @@
-import { getToken } from 'next-auth/jwt';
+import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { authOptions } from '@/app/auth.config';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const BACKEND_API_SECRET = process.env.BACKEND_API_SECRET || '';
@@ -29,12 +30,10 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     );
   }
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  // getServerSession usa las mismas cookies que /api/auth/session (recomendado en App Router)
+  const session = await getServerSession(authOptions);
 
-  if (!isPublic && !token) {
+  if (!isPublic && !session) {
     return NextResponse.json({ detail: 'Sesión requerida' }, { status: 401 });
   }
 
@@ -47,10 +46,9 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     Authorization: `Bearer ${BACKEND_API_SECRET}`,
     'Content-Type': request.headers.get('content-type') || 'application/json',
   };
-  if (token?.id ?? token?.sub) {
-    // Preferir token.id (id de BD del backend); token.sub es el subject del proveedor (ej. Google, muy largo)
-    headers['X-User-Id'] = String(token.id ?? token.sub);
-    headers['X-User-Email'] = String(token.email ?? '');
+  if (session?.user?.id ?? session?.user?.email) {
+    headers['X-User-Id'] = String(session.user.id ?? '');
+    headers['X-User-Email'] = String(session.user.email ?? '');
   }
 
   const init: RequestInit & { duplex?: 'half' } = {
