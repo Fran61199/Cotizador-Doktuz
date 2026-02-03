@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCatalog, getClinics, getApiError } from '@/api';
+import { getCatalog, getClinics } from '@/api';
 import type { Location, Test } from '@/types';
 
 export function useCatalog(
@@ -35,9 +35,8 @@ export function useCatalog(
       .then((data) => {
         if (!cancelled) setCatalog(data);
       })
-      .catch((err) => {
+      .catch(() => {
         if (!cancelled) {
-          const apiErr = getApiError(err);
           setError('No se pudo cargar el catálogo. Intenta de nuevo.');
           setCatalog([]);
         }

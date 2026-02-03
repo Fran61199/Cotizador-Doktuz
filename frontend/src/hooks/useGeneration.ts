@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import NProgress from 'nprogress';
-import { getNextProposalNumber, createDocuments, getApiError } from '@/api';
+import { getNextProposalNumber, createDocuments } from '@/api';
 import type { GenerationPayload } from '@/types';
 
 export function useGeneration() {
@@ -30,7 +30,6 @@ export function useGeneration() {
         a.remove();
         window.URL.revokeObjectURL(url);
       } catch (err) {
-        const apiErr = getApiError(err);
         setError('No se pudo generar el documento. Intenta de nuevo.');
         throw err;
       } finally {

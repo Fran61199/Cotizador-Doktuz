@@ -1,6 +1,8 @@
 import os, zipfile
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.dependencies import require_user
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 from app.constants import CRA_CLASSIFICATIONS
@@ -26,15 +28,15 @@ def _cleanup(paths):
         except FileNotFoundError:
             pass
 
-def _compute_clinic_totals(payload: GenerationRequest) -> list:
-    """Calcula totales por clínica (sedes provincia): ingreso, periodico, retiro excluyendo C/R/A."""
+def _compute_clinic_totals(payload: GenerationRequest, catalogs_by_clinic: dict) -> list:
+    """Calcula totales por clínica (sedes provincia): ingreso, periodico, retiro excluyendo C/R/A.
+    catalogs_by_clinic: {clinic_name: catalog} precargados."""
     clinics = payload.clinics or []
     if not clinics:
         return []
-    margin = payload.margin or 20.0
     result = []
     for clinic_name in clinics:
-        catalog = get_catalog("Provincia", clinic_name, margin)
+        catalog = catalogs_by_clinic.get(clinic_name, [])
         by_name = {t["name"]: t["prices"] for t in catalog}
         ingreso = periodico = retiro = 0.0
         for s in payload.selections or []:
@@ -57,14 +59,14 @@ def _compute_clinic_totals(payload: GenerationRequest) -> list:
     return result
 
 
-def _prepare_payload_for_docgen(payload: GenerationRequest) -> GenerationRequest:
+def _prepare_payload_for_docgen(payload: GenerationRequest, lima_catalog: list) -> GenerationRequest:
     """
     Retorna una copia del payload lista para docgen.
     En Provincia: selecciones con precios Lima (sin mutar el original).
+    lima_catalog: catálogo Lima precargado.
     """
     if payload.location != "Provincia" or not payload.clinic_totals:
         return payload
-    lima_catalog = get_catalog("Lima", None, 0)
     lima_by_name = {t["name"]: dict(t.get("prices", {})) for t in lima_catalog}
     new_selections = []
     for s in (payload.selections or []):
@@ -82,20 +84,35 @@ def _prepare_payload_for_docgen(payload: GenerationRequest) -> GenerationRequest
 
 
 @router.post("/create")
-def create_documents(payload: GenerationRequest):
+def create_documents(payload: GenerationRequest, _: tuple = Depends(require_user)):
     if not payload.company or not payload.recipient or not payload.executive:
         raise HTTPException(status_code=400, detail="Faltan empresa/destinatario/ejecutivo")
     if not payload.selections and not payload.images:
         raise HTTPException(status_code=400, detail="Debe existir al menos una selección o imagen")
 
-    # Totales por clínica si hay sedes provincia seleccionadas (Lima o Provincia como pestaña activa)
+    # Precargar catálogos una sola vez (optimización: evita N llamadas a get_catalog)
+    margin = payload.margin or 20.0
+    lima_catalog = None
+    catalogs_by_clinic = {}
+    
+    if payload.clinics:
+        # Cargar catálogo Lima si es necesario para Provincia
+        if payload.location == "Provincia":
+            lima_catalog = get_catalog("Lima", None, 0)
+        # Cargar catálogo por clínica una sola vez
+        for clinic_name in payload.clinics:
+            catalogs_by_clinic[clinic_name] = get_catalog("Provincia", clinic_name, margin)
+    
+    # Totales por clínica si hay sedes provincia seleccionadas
     if not payload.clinics:
         payload.clinic_totals = []
     elif not payload.clinic_totals:
-        payload.clinic_totals = _compute_clinic_totals(payload)
+        payload.clinic_totals = _compute_clinic_totals(payload, catalogs_by_clinic)
 
     # Copia para docgen: en Provincia, primera tabla usa precios Lima (sin mutar payload)
-    docgen_payload = _prepare_payload_for_docgen(payload)
+    if lima_catalog is None and payload.location == "Provincia" and payload.clinic_totals:
+        lima_catalog = get_catalog("Lima", None, 0)
+    docgen_payload = _prepare_payload_for_docgen(payload, lima_catalog or [])
 
     try:
         pptx_path = generate_pptx(docgen_payload, str(TEMP_DIR))

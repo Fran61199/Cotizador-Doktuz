@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import AppHeader from '../components/Layout/AppHeader';
 import AuthGuard from '../components/AuthGuard';
 import Toast from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import {
   downloadPricesTemplate,
+  getImportPreview,
   importPricesFile,
   getPricesList,
   updatePrice,
@@ -15,7 +16,7 @@ import {
   getClinics,
   searchTests,
 } from '@/api';
-import type { PriceRow, PricesListResult, SearchTestResult } from '@/api';
+import type { PriceRow, PricesListResult, SearchTestResult, ImportPreviewRow } from '@/api';
 
 export default function PruebasPage() {
   const toast = useToast();
@@ -50,6 +51,16 @@ export default function PruebasPage() {
   const [searchLoading, setSearchLoading] = useState(false);
 
   const [tableSearchQuery, setTableSearchQuery] = useState('');
+
+  const [importPreviewOpen, setImportPreviewOpen] = useState(false);
+  const [importPreviewData, setImportPreviewData] = useState<{
+    rows: ImportPreviewRow[];
+    validCount: number;
+    invalidCount: number;
+  } | null>(null);
+  const [showOnlyErrors, setShowOnlyErrors] = useState(false);
+  const [importConfirmLoading, setImportConfirmLoading] = useState(false);
+  const importPreviewFileRef = useRef<File | null>(null);
 
   const loadClinics = useCallback(() => {
     getClinics()
@@ -281,7 +292,7 @@ export default function PruebasPage() {
                 <div className="pruebas-import-actions d-flex flex-wrap align-items-center gap-2">
                   <button
                     type="button"
-                    className="btn btn-outline-secondary btn-sm"
+                    className="btn btn-outline-secondary btn-sm pruebas-import-btn"
                     onClick={async () => {
                       setPriceImportError(null);
                       try {
@@ -307,19 +318,19 @@ export default function PruebasPage() {
                       setPriceImportResult(null);
                       setPriceImportLoading(true);
                       try {
-                        const res = await importPricesFile(file);
-                        setPriceImportResult(res);
-                        toast.success(`${res.imported} importado(s)`);
-                        loadClinics();
-                        loadPriceList();
-                      } catch {
-                        toast.error('No se pudo importar');
+                        const preview = await getImportPreview(file);
+                        importPreviewFileRef.current = file;
+                        setImportPreviewData(preview);
+                        setShowOnlyErrors(false);
+                        setImportPreviewOpen(true);
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : 'No se pudo leer el archivo');
                       } finally {
                         setPriceImportLoading(false);
                       }
                     }}
                   />
-                  <label htmlFor="price-import-file" className="btn btn-primary btn-sm mb-0">
+                  <label htmlFor="price-import-file" className="btn btn-primary btn-sm mb-0 pruebas-import-btn">
                     {priceImportLoading ? 'Cargando…' : 'Cargar'}
                   </label>
                   {priceImportResult && priceImportResult.errors.length > 0 && (
@@ -556,6 +567,118 @@ export default function PruebasPage() {
                 <div className="modal-footer py-2">
                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setDeleteModalTest(null); setDeleteError(null); }} disabled={deleteLoading}>Cancelar</button>
                   <button type="button" className="btn btn-danger btn-sm" onClick={handleDeleteConfirm} disabled={deleteLoading}>{deleteLoading ? '…' : 'Eliminar'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {importPreviewOpen && importPreviewData && (
+          <div className="modal show d-block import-preview-modal" role="dialog" aria-labelledby="import-preview-title" aria-modal="true">
+            <div className="modal-dialog modal-dialog-centered modal-lg import-preview-dialog">
+              <div className="modal-content import-preview-content">
+                <div className="modal-header import-preview-header">
+                  <div className="d-flex align-items-center justify-content-between w-100 flex-wrap gap-2">
+                    <h5 id="import-preview-title" className="modal-title import-preview-title">Importar precios desde Excel</h5>
+                    <div className="d-flex align-items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm import-preview-download"
+                        onClick={async () => {
+                          try {
+                            await downloadPricesTemplate();
+                            toast.success('Plantilla descargada');
+                          } catch {
+                            toast.error('No se pudo descargar');
+                          }
+                        }}
+                      >
+                        Descargar plantilla
+                      </button>
+                      <button type="button" className="btn-close" onClick={() => { setImportPreviewOpen(false); setImportPreviewData(null); importPreviewFileRef.current = null; }} aria-label="Cerrar" />
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-body import-preview-body">
+                  <div className="import-preview-summary">
+                    <span className="import-preview-summary-label">Vista previa</span>
+                    <div className="import-preview-badges">
+                      <span className="import-preview-badge import-preview-badge-valid">
+                        {importPreviewData.validCount} válida{importPreviewData.validCount !== 1 ? 's' : ''}
+                      </span>
+                      <span className="import-preview-badge import-preview-badge-invalid">
+                        {importPreviewData.invalidCount} inválida{importPreviewData.invalidCount !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="form-check form-switch import-preview-toggle">
+                    <input className="form-check-input" type="checkbox" id="show-only-errors" checked={showOnlyErrors} onChange={(e) => setShowOnlyErrors(e.target.checked)} />
+                    <label className="form-check-label" htmlFor="show-only-errors">Mostrar sólo errores</label>
+                  </div>
+                  <div className="import-preview-table-wrap">
+                    <div className="table-responsive">
+                      <table className="table table-sm mb-0 import-preview-table">
+                        <thead>
+                          <tr>
+                            <th>Prueba</th>
+                            <th>Categoría</th>
+                            <th>Clínica</th>
+                            <th>Ingreso</th>
+                            <th>Periódico</th>
+                            <th>Retiro</th>
+                            <th>Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(showOnlyErrors ? importPreviewData.rows.filter((r) => !r.valid) : importPreviewData.rows).map((row, i) => (
+                            <tr key={i} className={row.valid ? '' : 'import-preview-row-error'}>
+                              <td>{String(row.prueba)}</td>
+                              <td>{String(row.categoria)}</td>
+                              <td>{String(row.clinica || 'Lima')}</td>
+                              <td>{Number(row.ingreso)}</td>
+                              <td>{Number(row.periodico)}</td>
+                              <td>{Number(row.retiro)}</td>
+                              <td>
+                                {row.valid ? (
+                                  <span className="import-preview-status-ok">OK</span>
+                                ) : (
+                                  <span className="import-preview-status-error">{row.error || '—'}</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer import-preview-footer">
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setImportPreviewOpen(false); setImportPreviewData(null); importPreviewFileRef.current = null; }}>Cancelar</button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={importConfirmLoading || importPreviewData.validCount === 0}
+                    onClick={async () => {
+                      const file = importPreviewFileRef.current;
+                      if (!file) return;
+                      setImportConfirmLoading(true);
+                      try {
+                        const res = await importPricesFile(file);
+                        setImportPreviewOpen(false);
+                        setImportPreviewData(null);
+                        importPreviewFileRef.current = null;
+                        toast.success(`${res.imported} importado(s)`);
+                        loadClinics();
+                        loadPriceList();
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : 'No se pudo importar');
+                      } finally {
+                        setImportConfirmLoading(false);
+                      }
+                    }}
+                  >
+                    {importConfirmLoading ? 'Importando…' : 'Confirmar'}
+                  </button>
                 </div>
               </div>
             </div>

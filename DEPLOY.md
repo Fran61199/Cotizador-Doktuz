@@ -31,9 +31,12 @@ Despliegue en **Vercel** (frontend) + **Render** (backend) + **Neon** (PostgreSQ
    - **Root Directory**: `backend`
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. En **Environment**, añade:
+4. En **Environment**, añade (todas obligatorias en producción):
    - `DATABASE_URL` = tu connection string de Neon
    - `CORS_ORIGINS` = `https://tu-app.vercel.app` (URL de Vercel; actualízala tras el deploy)
+   - `BACKEND_API_SECRET` = el mismo valor que en Vercel (genera con `openssl rand -base64 32`)
+   - `FRONTEND_URL` = `https://tu-app.vercel.app` (para enlaces en emails: restablecer clave, invitaciones)
+   - Para emails (Olvidé mi contraseña): `RESEND_API_KEY` y `RESEND_FROM` (ver backend/.env.example)
 5. **Create Web Service** y anota la URL (ej: `https://cotizador-api-xxx.onrender.com`).
 6. Tras desplegar el frontend en Vercel, actualiza `CORS_ORIGINS` en Render con la URL real (ej: `https://cotizador-emos.vercel.app`).
 
@@ -82,6 +85,7 @@ python -m scripts.seed_db
    | `NEXTAUTH_SECRET` | Genera con `openssl rand -base64 32` |
    | `GOOGLE_CLIENT_ID` | Tu Client ID de Google OAuth |
    | `GOOGLE_CLIENT_SECRET` | Tu Client Secret de Google OAuth |
+   | `BACKEND_API_SECRET` | El mismo valor que en Render (obligatorio para proxy y auth) |
 
 5. **Deploy**.
 
@@ -130,7 +134,11 @@ En [Google Cloud Console](https://console.cloud.google.com):
 | Variable | Descripción |
 |----------|-------------|
 | `DATABASE_URL` | Connection string de Neon |
-| `CORS_ORIGINS` | URL del frontend (Vercel o tu dominio) |
+| `CORS_ORIGINS` | URL del frontend (Vercel o tu dominio), sin barra final |
+| `BACKEND_API_SECRET` | Mismo valor que en Vercel (proxy y validación de peticiones) |
+| `FRONTEND_URL` | URL del frontend para enlaces en emails (restablecer clave, invitaciones) |
+| `RESEND_API_KEY` | (Opcional) API Key de Resend para enviar emails |
+| `RESEND_FROM` | (Opcional) Remitente del correo, ej. `Cotizador <onboarding@resend.dev>` |
 
 ### Frontend (Vercel)
 
@@ -138,9 +146,10 @@ En [Google Cloud Console](https://console.cloud.google.com):
 |----------|-------------|
 | `NEXT_PUBLIC_API_URL` | URL del backend (Render) |
 | `NEXTAUTH_URL` | URL del frontend (Vercel o tu dominio) |
-| `NEXTAUTH_SECRET` | Secret para NextAuth |
+| `NEXTAUTH_SECRET` | Secret para NextAuth (`openssl rand -base64 32`) |
 | `GOOGLE_CLIENT_ID` | OAuth Google |
 | `GOOGLE_CLIENT_SECRET` | OAuth Google |
+| `BACKEND_API_SECRET` | Mismo valor que en Render (obligatorio si usas proxy) |
 
 ---
 

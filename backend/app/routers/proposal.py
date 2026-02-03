@@ -1,6 +1,8 @@
 # app/routers/proposal.py
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
+
+from app.dependencies import require_user
 from app.services.proposal_service import next_for_executive
 from app.services.audit_service import log_protocol_saved
 
@@ -19,7 +21,10 @@ class ProtocolSaveBody(BaseModel):
 
 
 @router.get("/next")
-def next_number(executive: str = Query("", description="Nombre del ejecutivo comercial")):
+def next_number(
+    executive: str = Query("", description="Nombre del ejecutivo comercial"),
+    _: tuple = Depends(require_user),
+):
     """
     Devuelve correlativo por ejecutivo (zero-padded).
     """
@@ -28,7 +33,7 @@ def next_number(executive: str = Query("", description="Nombre del ejecutivo com
 
 
 @router.post("/save-protocol")
-def save_protocol(body: ProtocolSaveBody):
+def save_protocol(body: ProtocolSaveBody, _: tuple = Depends(require_user)):
     """
     Registra en auditoría el guardado de un protocolo (quién, empresa, protocolo, ubicación, conteos).
     """

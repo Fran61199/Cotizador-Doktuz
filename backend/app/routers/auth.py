@@ -2,12 +2,14 @@ import os
 import secrets
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import bcrypt
 
 from app.database import get_db
+from app.dependencies import require_api_secret, require_user
+from app.limiter import limiter
 from app.models.db_models import User, PasswordResetToken
 
 router = APIRouter()
@@ -65,7 +67,11 @@ class ResetPasswordBody(BaseModel):
 
 
 @router.post("/verify", response_model=UserResponse)
-def verify_credentials(body: CredentialsBody, db: Session = Depends(get_db)):
+def verify_credentials(
+    body: CredentialsBody,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_api_secret),
+):
     """Verifica email y contraseña. Retorna el usuario si es válido."""
     user = db.query(User).filter(User.email == body.email.strip().lower()).first()
     if not user:
@@ -81,7 +87,13 @@ def verify_credentials(body: CredentialsBody, db: Session = Depends(get_db)):
 
 
 @router.get("/allowed")
-def check_allowed(email: str = Query(...), db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def check_allowed(
+    request: Request,
+    email: str = Query(...),
+    db: Session = Depends(get_db),
+    _: None = Depends(require_api_secret),
+):
     """Verifica si un email está autorizado (Google OAuth: cualquier dominio si está en la tabla)."""
     email_trim = (email or "").strip().lower()
     if not email_trim:
@@ -90,15 +102,33 @@ def check_allowed(email: str = Query(...), db: Session = Depends(get_db)):
     return {"allowed": user is not None}
 
 
+@router.get("/user-by-email", response_model=UserResponse)
+@limiter.limit("30/minute")
+def get_user_by_email(
+    request: Request,
+    email: str = Query(...),
+    db: Session = Depends(get_db),
+    _: None = Depends(require_api_secret),
+):
+    """Devuelve el usuario por email (para NextAuth: obtener id de BD tras login con Google)."""
+    email_trim = (email or "").strip().lower()
+    if not email_trim:
+        raise HTTPException(status_code=400, detail="Email obligatorio")
+    user = db.query(User).filter(User.email == email_trim).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return UserResponse(id=user.id, email=user.email, name=user.name)
+
+
 @router.get("/users", response_model=list[UserResponse])
-def list_users(db: Session = Depends(get_db)):
+def list_users(db: Session = Depends(get_db), _: tuple = Depends(require_user)):
     """Lista todos los usuarios autorizados."""
     users = db.query(User).order_by(User.email).all()
     return [UserResponse(id=u.id, email=u.email, name=u.name) for u in users]
 
 
 @router.post("/users", response_model=UserResponse)
-def add_user(body: AddUserBody, db: Session = Depends(get_db)):
+def add_user(body: AddUserBody, db: Session = Depends(get_db), _: tuple = Depends(require_user)):
     """Añade un usuario autorizado para Google OAuth (cualquier email, ej. @doktuz.com o @gmail.com)."""
     email = (body.email or "").strip().lower()
     if not email:
@@ -222,7 +252,7 @@ def _send_welcome_email(to_email: str, name: str | None, login_url: str, plain_p
 
 
 @router.post("/users/invite", response_model=InviteResponse)
-def invite_user(body: AddUserBody, db: Session = Depends(get_db)):
+def invite_user(body: AddUserBody, db: Session = Depends(get_db), _: tuple = Depends(require_user)):
     """Crea un usuario con contraseña aleatoria y la envía por email. La tabla guarda solo el hash (bcrypt)."""
     email = (body.email or "").strip().lower()
     if not email:
@@ -243,7 +273,13 @@ def invite_user(body: AddUserBody, db: Session = Depends(get_db)):
 
 
 @router.post("/register", response_model=RegisterResponse)
-def register(body: RegisterBody, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(
+    request: Request,
+    body: RegisterBody,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_api_secret),
+):
     """Registro: se genera contraseña aleatoria y se envía por correo junto al enlace de login."""
     email = (body.email or "").strip().lower()
     if not email:
@@ -329,7 +365,13 @@ def _send_reset_email(to_email: str, reset_link: str) -> bool:
 
 
 @router.post("/forgot-password")
-def forgot_password(body: ForgotPasswordBody, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def forgot_password(
+    request: Request,
+    body: ForgotPasswordBody,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_api_secret),
+):
     """Solicita restablecer contraseña. Siempre devuelve éxito para no revelar si el email existe."""
     import logging
     email = (body.email or "").strip().lower()
@@ -353,7 +395,13 @@ def forgot_password(body: ForgotPasswordBody, db: Session = Depends(get_db)):
 
 
 @router.post("/reset-password")
-def reset_password(body: ResetPasswordBody, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def reset_password(
+    request: Request,
+    body: ResetPasswordBody,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_api_secret),
+):
     """Restablece la contraseña con el token recibido por email."""
     token = (body.token or "").strip()
     new_password = (body.new_password or "").strip()

@@ -1,5 +1,13 @@
 import os
 import uvicorn
+from pathlib import Path
+
+# Cargar .env para que BACKEND_API_SECRET, CORS_ORIGINS, etc. estén disponibles
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+except ImportError:
+    pass
 
 if __name__ == '__main__':
     # reload=True puede causar KeyboardInterrupt/CancelledError en Windows al recargar

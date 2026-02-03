@@ -1,4 +1,4 @@
-import { api, getApiError } from './client';
+import { api } from './client';
 
 export type RegisterPayload = { email: string; password?: string; name?: string };
 export type UserAuthResponse = { id: number; email: string; name: string | null };
@@ -21,5 +21,3 @@ export async function resetPassword(token: string, newPassword: string): Promise
   });
   return data;
 }
-
-export { getApiError };

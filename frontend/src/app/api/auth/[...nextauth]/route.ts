@@ -1,8 +1,14 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { API_URL } from '@/api/client';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const backendAuthHeaders = (): Record<string, string> => {
+  const secret = process.env.BACKEND_API_SECRET;
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (secret) h['Authorization'] = `Bearer ${secret}`;
+  return h;
+};
 
 const handler = NextAuth({
   providers: [
@@ -18,9 +24,9 @@ const handler = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-        const res = await fetch(`${apiUrl}/api/auth/verify`, {
+        const res = await fetch(`${API_URL}/api/auth/verify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: backendAuthHeaders(),
           body: JSON.stringify({
             email: credentials.email,
             password: credentials.password,
@@ -33,17 +39,41 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        token.name = user.name;
+        token.email = user.email ?? token.email;
+        token.name = user.name ?? token.name;
+        if (account?.provider === 'google' && user.email) {
+          try {
+            const res = await fetch(
+              `${API_URL}/api/auth/user-by-email?email=${encodeURIComponent(user.email)}`,
+              { headers: backendAuthHeaders() }
+            );
+            if (res.ok) {
+              const text = await res.text();
+              try {
+                const dbUser = text ? (JSON.parse(text) as { id?: number; email?: string; name?: string | null }) : {};
+                if (dbUser.id != null) token.id = String(dbUser.id);
+                if (dbUser.email) token.email = dbUser.email;
+                if (dbUser.name != null) token.name = dbUser.name;
+              } catch {
+                token.id = (user as { id?: string }).id ?? token.sub ?? '';
+              }
+            } else {
+              token.id = (user as { id?: string }).id ?? token.sub ?? '';
+            }
+          } catch {
+            token.id = (user as { id?: string }).id ?? token.sub ?? '';
+          }
+        } else {
+          token.id = user.id ?? token.sub ?? '';
+        }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id;
+        session.user.id = typeof token.id === 'string' ? token.id : String(token.id ?? '');
         session.user.email = token.email ?? '';
         session.user.name = token.name ?? '';
       }
@@ -52,14 +82,26 @@ const handler = NextAuth({
     async signIn({ user, account }) {
       if (account?.provider === 'google' && user?.email) {
         try {
-          const res = await fetch(
-            `${apiUrl}/api/auth/allowed?email=${encodeURIComponent(user.email)}`
-          );
-          const data = await res.json();
-          if (!data?.allowed) {
+          const url = `${API_URL}/api/auth/allowed?email=${encodeURIComponent(user.email)}`;
+          const res = await fetch(url, { headers: backendAuthHeaders() });
+          const text = await res.text();
+          let data: { allowed?: boolean } = {};
+          try {
+            data = text ? JSON.parse(text) : {};
+          } catch {
+            console.error('[NextAuth Google] Backend response no es JSON. Status:', res.status);
             return false;
           }
-        } catch {
+          if (!res.ok) {
+            console.error('[NextAuth Google] Backend /api/auth/allowed devolvió', res.status, '- Revisa BACKEND_API_SECRET (mismo valor en frontend .env.local y backend .env) y que el backend esté en marcha.');
+            return false;
+          }
+          if (!data?.allowed) {
+            console.error('[NextAuth Google] El email no está autorizado en la BD. Añádelo con: python -m scripts.add_google_user', user.email);
+            return false;
+          }
+        } catch (err) {
+          console.error('[NextAuth Google] No se pudo conectar al backend en', API_URL, '- ¿Está el backend en marcha?', err);
           return false;
         }
       }

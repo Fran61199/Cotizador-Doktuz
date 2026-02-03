@@ -1,8 +1,12 @@
 import axios, { AxiosError } from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+/** Base URL del proxy Next.js que reenvía al backend con sesión (JWT) y secret. */
+export const API_BASE = '/api/backend';
+/** URL del backend (solo para uso server-side, p. ej. proxy). En el cliente usar API_BASE. */
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
   timeout: 20000,
 });

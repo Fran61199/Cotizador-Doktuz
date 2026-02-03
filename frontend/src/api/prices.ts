@@ -1,8 +1,25 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from './client';
 
 export type ImportPricesResult = {
   imported: number;
   errors: string[];
+};
+
+export type ImportPreviewRow = {
+  prueba: string;
+  categoria: string;
+  clinica: string;
+  ingreso: number;
+  periodico: number;
+  retiro: number;
+  valid: boolean;
+  error?: string | null;
+};
+
+export type ImportPreviewResult = {
+  rows: ImportPreviewRow[];
+  validCount: number;
+  invalidCount: number;
 };
 
 export type PriceRow = {
@@ -39,7 +56,7 @@ export type SearchTestResult = {
 
 /** Busca pruebas por nombre. Devuelve clínicas con y sin precios. */
 export async function searchTests(q: string): Promise<{ tests: SearchTestResult[] }> {
-  const res = await fetch(`${API_URL}/api/prices/search?q=${encodeURIComponent(q)}`, {
+  const res = await fetch(`${API_BASE}/api/prices/search?q=${encodeURIComponent(q)}`, {
     method: 'GET',
     credentials: 'include',
   });
@@ -58,7 +75,7 @@ export type PriceUpdatePayload = {
 
 /** Lista exámenes y precios para una sede (Lima o nombre de clínica). */
 export async function getPricesList(clinic: string): Promise<PricesListResult> {
-  const res = await fetch(`${API_URL}/api/prices/list?clinic=${encodeURIComponent(clinic)}`, {
+  const res = await fetch(`${API_BASE}/api/prices/list?clinic=${encodeURIComponent(clinic)}`, {
     method: 'GET',
     credentials: 'include',
   });
@@ -69,7 +86,7 @@ export async function getPricesList(clinic: string): Promise<PricesListResult> {
 
 /** Actualiza o crea un precio (1x1). clinic_id null = Lima. */
 export async function updatePrice(payload: PriceUpdatePayload): Promise<{ id: number }> {
-  const res = await fetch(`${API_URL}/api/prices`, {
+  const res = await fetch(`${API_BASE}/api/prices`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -97,7 +114,7 @@ export type DeletePricePayload = {
 
 /** Añade una prueba (crea si no existe) y su precio para la sede. clinic_id null = Lima. */
 export async function addPrice(payload: AddPricePayload): Promise<{ id: number; test_id: number }> {
-  const res = await fetch(`${API_URL}/api/prices/add`, {
+  const res = await fetch(`${API_BASE}/api/prices/add`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -110,7 +127,7 @@ export async function addPrice(payload: AddPricePayload): Promise<{ id: number; 
 
 /** Elimina precio(s) de una prueba según el alcance. */
 export async function deletePrice(payload: DeletePricePayload): Promise<{ deleted: number; test_name: string }> {
-  const res = await fetch(`${API_URL}/api/prices`, {
+  const res = await fetch(`${API_BASE}/api/prices`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -123,7 +140,7 @@ export async function deletePrice(payload: DeletePricePayload): Promise<{ delete
 
 /** Descarga la plantilla XLSX de precios. */
 export async function downloadPricesTemplate(): Promise<void> {
-  const res = await fetch(`${API_URL}/api/prices/template`, { method: 'GET' });
+  const res = await fetch(`${API_BASE}/api/prices/template`, { method: 'GET', credentials: 'include' });
   if (!res.ok) throw new Error('No se pudo descargar la plantilla.');
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
@@ -134,18 +151,40 @@ export async function downloadPricesTemplate(): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-/** Sube un archivo XLSX e importa precios. */
-export async function importPricesFile(file: File): Promise<ImportPricesResult> {
+/** Envía el archivo XLSX y obtiene previsualización (filas válidas/inválidas) sin importar. */
+export async function getImportPreview(file: File): Promise<ImportPreviewResult> {
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch(`${API_URL}/api/prices/import`, {
+  const res = await fetch(`${API_BASE}/api/prices/preview`, {
     method: 'POST',
     body: form,
     credentials: 'include',
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error('No se pudo importar el archivo. Verifica el formato e intenta de nuevo.');
+    const detail = typeof data?.detail === 'string' ? data.detail : 'No se pudo leer el archivo.';
+    throw new Error(detail);
+  }
+  return {
+    rows: data.rows ?? [],
+    validCount: data.validCount ?? 0,
+    invalidCount: data.invalidCount ?? 0,
+  };
+}
+
+/** Sube un archivo XLSX e importa precios. */
+export async function importPricesFile(file: File): Promise<ImportPricesResult> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_BASE}/api/prices/import`, {
+    method: 'POST',
+    body: form,
+    credentials: 'include',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = typeof data?.detail === 'string' ? data.detail : 'No se pudo importar el archivo. Verifica el formato e intenta de nuevo.';
+    throw new Error(detail);
   }
   return { imported: data.imported ?? 0, errors: data.errors ?? [] };
 }

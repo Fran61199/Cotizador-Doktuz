@@ -28,6 +28,9 @@ class Test(Base):
     name = Column(String(255), nullable=False)
     category = Column(String(255), nullable=False)
     prices = relationship("Price", back_populates="test")
+    __table_args__ = (
+        Index("ix_test_name_category", "name", "category"),
+    )
 
 
 class Clinic(Base):

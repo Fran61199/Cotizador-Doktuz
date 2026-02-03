@@ -1,5 +1,6 @@
 # app/services/docgen/helpers.py
 """Helpers para PPT: plantilla, marcadores, celdas."""
+import logging
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -8,11 +9,13 @@ from pptx.util import Pt
 
 from .config import PPT_TABLE_MARKER, TEXT_MARKERS
 
+logger = logging.getLogger(__name__)
+
 
 def must_template() -> str:
     from . import config
     p = Path(config.PPT_TEMPLATE)
-    print(f"[DOCGEN] PPT_TEMPLATE={p} exists={p.exists()}")
+    logger.debug("PPT_TEMPLATE=%s exists=%s", p, p.exists())
     if not p.exists():
         raise FileNotFoundError(f"No se encontró la plantilla en {p}")
     return str(p)

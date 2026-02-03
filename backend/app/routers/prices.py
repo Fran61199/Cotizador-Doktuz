@@ -2,14 +2,15 @@
 import io
 from typing import List, Dict, Any, Optional
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from app.database import get_db
+from app.dependencies import require_user
 from app.models.db_models import Test, Clinic, Price
-from app.services.price_import_service import import_prices_from_rows
+from app.services.price_import_service import import_prices_from_rows, validate_import_rows
 
 try:
     from openpyxl import Workbook
@@ -136,7 +137,7 @@ def _parse_xlsx_rows(content: bytes) -> List[Dict[str, Any]]:
 
 
 @router.get("/template")
-def download_template():
+def download_template(_: tuple = Depends(require_user)):
     """Descarga plantilla XLSX para importar precios."""
     if Workbook is None:
         raise HTTPException(status_code=500, detail="Error al generar la plantilla.")
@@ -149,89 +150,92 @@ def download_template():
 
 
 @router.get("/search")
-def search_tests(q: str = Query("", description="Búsqueda por nombre de prueba (mín. 2 caracteres)")):
+def search_tests(
+    q: str = Query("", description="Búsqueda por nombre de prueba (mín. 2 caracteres)"),
+    db: Session = Depends(get_db),
+    _: tuple = Depends(require_user),
+):
     """Busca pruebas por nombre. Devuelve clínicas con precios y clínicas sin precio."""
     q_trim = (q or "").strip()
     if len(q_trim) < 2:
         return {"tests": []}
-    db: Session = SessionLocal()
-    try:
-        tests = db.query(Test).filter(Test.name.ilike(f"%{q_trim}%")).order_by(Test.category, Test.name).limit(50).all()
-        if not tests:
-            return {"tests": []}
-        test_ids = [t.id for t in tests]
-        prices = db.query(Price).filter(Price.test_id.in_(test_ids)).all()
-        clinic_ids = {p.clinic_id for p in prices if p.clinic_id is not None}
-        clinics = {c.id: c.name for c in db.query(Clinic).filter(Clinic.id.in_(clinic_ids)).all()} if clinic_ids else {}
-        all_clinic_names = ["Lima"] + [c.name for c in db.query(Clinic.name).order_by(Clinic.name).all()]
-        prices_by_test = {}
-        for p in prices:
-            key = p.test_id
-            if key not in prices_by_test:
-                prices_by_test[key] = []
-            clinic_name = "Lima" if p.clinic_id is None else clinics.get(p.clinic_id, "?")
-            prices_by_test[key].append({
-                "clinic_name": clinic_name,
-                "clinic_id": p.clinic_id,
-                "ingreso": float(p.ingreso),
-                "periodico": float(p.periodico),
-                "retiro": float(p.retiro),
-            })
-        result = []
-        for t in tests:
-            with_prices = prices_by_test.get(t.id, [])
-            clinics_with_price = {row["clinic_name"] for row in with_prices}
-            clinics_without_price = [c for c in all_clinic_names if c not in clinics_with_price]
-            result.append({
-                "test_id": t.id,
-                "test_name": t.name,
-                "category": t.category,
-                "clinics_with_price": with_prices,
-                "clinics_without_price": clinics_without_price,
-            })
-        return {"tests": result}
-    finally:
-        db.close()
+    tests = db.query(Test).filter(Test.name.ilike(f"%{q_trim}%")).order_by(Test.category, Test.name).limit(50).all()
+    if not tests:
+        return {"tests": []}
+    test_ids = [t.id for t in tests]
+    prices = db.query(Price).filter(Price.test_id.in_(test_ids)).all()
+    clinic_ids = {p.clinic_id for p in prices if p.clinic_id is not None}
+    clinics = {c.id: c.name for c in db.query(Clinic).filter(Clinic.id.in_(clinic_ids)).all()} if clinic_ids else {}
+    all_clinic_names = ["Lima"] + [c.name for c in db.query(Clinic.name).order_by(Clinic.name).all()]
+    prices_by_test = {}
+    for p in prices:
+        key = p.test_id
+        if key not in prices_by_test:
+            prices_by_test[key] = []
+        clinic_name = "Lima" if p.clinic_id is None else clinics.get(p.clinic_id, "?")
+        prices_by_test[key].append({
+            "clinic_name": clinic_name,
+            "clinic_id": p.clinic_id,
+            "ingreso": float(p.ingreso),
+            "periodico": float(p.periodico),
+            "retiro": float(p.retiro),
+        })
+    result = []
+    for t in tests:
+        with_prices = prices_by_test.get(t.id, [])
+        clinics_with_price = {row["clinic_name"] for row in with_prices}
+        clinics_without_price = [c for c in all_clinic_names if c not in clinics_with_price]
+        result.append({
+            "test_id": t.id,
+            "test_name": t.name,
+            "category": t.category,
+            "clinics_with_price": with_prices,
+            "clinics_without_price": clinics_without_price,
+        })
+    return {"tests": result}
 
 
 @router.get("/list")
-def list_prices_by_clinic(clinic: str = Query(..., description="Lima o nombre de la sede en provincia")):
+def list_prices_by_clinic(
+    clinic: str = Query(..., description="Lima o nombre de la sede en provincia"),
+    db: Session = Depends(get_db),
+    _: tuple = Depends(require_user),
+):
     """Lista todos los exámenes con sus precios para la sede indicada (Lima o nombre de clínica)."""
-    db: Session = SessionLocal()
-    try:
-        is_lima = clinic.strip().lower() in ("lima", "")
-        clinic_id: Optional[int] = None
-        if not is_lima:
-            c = db.query(Clinic.id).filter(Clinic.name == clinic.strip()).first()
-            if not c:
-                raise HTTPException(status_code=404, detail="Sede no encontrada.")
-            clinic_id = c.id
-        tests = db.query(Test).order_by(Test.category, Test.name).all()
-        if is_lima:
-            prices_q = db.query(Price).filter(Price.clinic_id.is_(None))
+    is_lima = clinic.strip().lower() in ("lima", "")
+    clinic_id: Optional[int] = None
+    if not is_lima:
+        c = db.query(Clinic.id).filter(Clinic.name == clinic.strip()).first()
+        if not c:
+            raise HTTPException(status_code=404, detail="Sede no encontrada.")
+        clinic_id = c.id
+    tests = db.query(Test).order_by(Test.category, Test.name).all()
+    if is_lima:
+        prices_q = db.query(Price).filter(Price.clinic_id.is_(None))
+    else:
+        prices_q = db.query(Price).filter(Price.clinic_id == clinic_id)
+    prices_by_test = {(p.test_id, p.clinic_id): p for p in prices_q.all()}
+    rows = []
+    for t in tests:
+        p = prices_by_test.get((t.id, clinic_id))
+        if p:
+            rows.append(PriceRow(test_id=t.id, test_name=t.name, category=t.category, price_id=p.id, ingreso=p.ingreso, periodico=p.periodico, retiro=p.retiro))
         else:
-            prices_q = db.query(Price).filter(Price.clinic_id == clinic_id)
-        prices_by_test = {(p.test_id, p.clinic_id): p for p in prices_q.all()}
-        rows = []
-        for t in tests:
-            p = prices_by_test.get((t.id, clinic_id))
-            if p:
-                rows.append(PriceRow(test_id=t.id, test_name=t.name, category=t.category, price_id=p.id, ingreso=p.ingreso, periodico=p.periodico, retiro=p.retiro))
-            else:
-                rows.append(PriceRow(test_id=t.id, test_name=t.name, category=t.category, price_id=None, ingreso=0, periodico=0, retiro=0))
-        return {"clinic": "Lima" if is_lima else clinic.strip(), "clinic_id": clinic_id, "tests": [r.model_dump() for r in rows]}
-    finally:
-        db.close()
+            rows.append(PriceRow(test_id=t.id, test_name=t.name, category=t.category, price_id=None, ingreso=0, periodico=0, retiro=0))
+    return {"clinic": "Lima" if is_lima else clinic.strip(), "clinic_id": clinic_id, "tests": [r.model_dump() for r in rows]}
 
 
 @router.post("/add")
-def add_price(body: AddPriceBody):
+def add_price(
+    body: AddPriceBody,
+    db: Session = Depends(get_db),
+    _: tuple = Depends(require_user),
+):
     """Añade una prueba (crea test si no existe) y su precio para la sede. clinic_id null = Lima."""
     name = (body.test_name or "").strip()
     category = (body.category or "").strip()
     if not name or not category:
         raise HTTPException(status_code=400, detail="Nombre y categoría son obligatorios.")
-    db: Session = SessionLocal()
     try:
         if body.clinic_id is not None:
             c = db.query(Clinic).filter(Clinic.id == body.clinic_id).first()
@@ -271,14 +275,15 @@ def add_price(body: AddPriceBody):
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Error al guardar. Intenta de nuevo.")
-    finally:
-        db.close()
 
 
 @router.put("")
-def update_price(body: PriceUpdateBody):
+def update_price(
+    body: PriceUpdateBody,
+    db: Session = Depends(get_db),
+    _: tuple = Depends(require_user),
+):
     """Crea o actualiza un precio (test_id + clinic_id null = Lima)."""
-    db: Session = SessionLocal()
     try:
         existing = (
             db.query(Price)
@@ -315,12 +320,36 @@ def update_price(body: PriceUpdateBody):
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Error al guardar. Intenta de nuevo.")
-    finally:
-        db.close()
+
+
+@router.post("/preview")
+def preview_import(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: tuple = Depends(require_user),
+):
+    """Parsea el XLSX y devuelve filas con validación (sin guardar). Para previsualización."""
+    if not file.filename or not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Debes subir un archivo .xlsx")
+    content = file.file.read()
+    try:
+        rows = _parse_xlsx_rows(content)
+    except Exception:
+        raise HTTPException(status_code=400, detail="El archivo no es válido.")
+    if not rows:
+        raise HTTPException(status_code=400, detail="El archivo no tiene filas de datos. Usa la plantilla con los encabezados indicados.")
+    validated = validate_import_rows(db, rows)
+    valid_count = sum(1 for r in validated if r.get("valid"))
+    invalid_count = len(validated) - valid_count
+    return {"rows": validated, "validCount": valid_count, "invalidCount": invalid_count}
 
 
 @router.post("/import")
-def import_prices(file: UploadFile = File(...)):
+def import_prices(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: tuple = Depends(require_user),
+):
     """Carga precios desde un archivo XLSX (mismo formato que la plantilla)."""
     if not file.filename or not file.filename.lower().endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="Debes subir un archivo .xlsx")
@@ -331,7 +360,6 @@ def import_prices(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="El archivo no es válido.")
     if not rows:
         raise HTTPException(status_code=400, detail="El archivo no tiene filas de datos. Usa la plantilla con los encabezados indicados.")
-    db: Session = SessionLocal()
     try:
         rows_done, errors = import_prices_from_rows(db, rows)
         db.commit()
@@ -339,12 +367,14 @@ def import_prices(file: UploadFile = File(...)):
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Error al importar. Intenta de nuevo.")
-    finally:
-        db.close()
 
 
 @router.delete("")
-def delete_price(body: DeletePriceBody):
+def delete_price(
+    body: DeletePriceBody,
+    db: Session = Depends(get_db),
+    _: tuple = Depends(require_user),
+):
     """
     Elimina precio(s) de una prueba según el alcance:
     - "clinic": elimina el precio para la clínica especificada (clinic_id requerido)
@@ -352,7 +382,6 @@ def delete_price(body: DeletePriceBody):
     - "all_provincia": elimina todos los precios de provincia (todas las clínicas)
     - "all": elimina TODOS los precios (Lima + todas las clínicas) y la prueba si no tiene más datos
     """
-    db: Session = SessionLocal()
     try:
         test = db.query(Test).filter(Test.id == body.test_id).first()
         if not test:
@@ -395,5 +424,3 @@ def delete_price(body: DeletePriceBody):
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Error al eliminar. Intenta de nuevo.")
-    finally:
-        db.close()

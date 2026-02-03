@@ -1,4 +1,4 @@
-import { api, getApiError } from './client';
+import { api } from './client';
 
 export type UserItem = {
   id: number;
@@ -26,5 +26,3 @@ export async function inviteUser(email: string, name?: string): Promise<InviteRe
   });
   return data!;
 }
-
-export { getApiError };

@@ -3,8 +3,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.database import Base, engine
+from app.limiter import limiter
 from app.models import db_models  # noqa: F401 - para registrar modelos
 from app.routers import auth, catalog, generator, proposal, prices
 
@@ -26,6 +29,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Cotizador EMOs API", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,

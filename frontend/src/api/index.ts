@@ -12,6 +12,7 @@ export { createDocuments } from './generator';
 export { getUsers, addUser, inviteUser, type UserItem } from './users';
 export {
   downloadPricesTemplate,
+  getImportPreview,
   importPricesFile,
   getPricesList,
   updatePrice,
@@ -19,6 +20,8 @@ export {
   deletePrice,
   searchTests,
   type ImportPricesResult,
+  type ImportPreviewResult,
+  type ImportPreviewRow,
   type PricesListResult,
   type PriceRow,
   type PriceUpdatePayload,
