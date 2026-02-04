@@ -27,6 +27,28 @@ def get_clinics() -> List[str]:
         return [c.name for c in db.query(Clinic.name).order_by(Clinic.name).all()]
 
 
+def get_clinics_with_ids() -> List[Dict[str, Any]]:
+    """Lista de clínicas con id y nombre (para selector múltiple en precios)."""
+    with SessionLocal() as db:
+        rows = db.query(Clinic.id, Clinic.name).order_by(Clinic.name).all()
+        return [{"id": r.id, "name": r.name} for r in rows]
+
+
+def create_clinic(name: str) -> str:
+    """Crea una clínica por nombre. Devuelve el nombre. Lanza si ya existe."""
+    with SessionLocal() as db:
+        n = (name or "").strip()
+        if not n:
+            raise ValueError("El nombre es obligatorio.")
+        existing = db.query(Clinic).filter(Clinic.name == n).first()
+        if existing:
+            raise ValueError("Ya existe una sede con ese nombre.")
+        clinic = Clinic(name=n)
+        db.add(clinic)
+        db.commit()
+        return n
+
+
 def _apply_margin(prices: Dict[str, float], margin: float) -> Dict[str, float]:
     """Aplica margen % a los costos para obtener precio final."""
     if margin <= 0:

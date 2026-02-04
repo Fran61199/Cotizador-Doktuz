@@ -11,11 +11,6 @@ export async function getUsers(): Promise<UserItem[]> {
   return data ?? [];
 }
 
-export async function addUser(email: string, name?: string): Promise<UserItem> {
-  const { data } = await api.post<UserItem>('/api/auth/users', { email: email.trim(), name: name?.trim() || null });
-  return data!;
-}
-
 export type InviteResponse = UserItem & { email_sent: boolean };
 
 /** Crea usuario con contraseña aleatoria y la envía por email. La BD guarda solo el hash. */

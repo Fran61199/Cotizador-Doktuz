@@ -5,7 +5,6 @@ import { authOptions } from '@/app/auth.config';
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const BACKEND_API_SECRET = process.env.BACKEND_API_SECRET || '';
 
-/** Rutas que no requieren sesión (login, registro, reset). */
 const PUBLIC_PATHS = [
   '/api/auth/verify',
   '/api/auth/allowed',
@@ -19,7 +18,7 @@ function isPublicPath(path: string): boolean {
   return PUBLIC_PATHS.some((p) => normalized === p || normalized.startsWith(p + '?'));
 }
 
-async function proxyRequest(request: NextRequest, pathSegments: string[]) {
+export async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
   const path = pathSegments.join('/');
   const isPublic = isPublicPath(path);
 
@@ -30,7 +29,6 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     );
   }
 
-  // getServerSession usa las mismas cookies que /api/auth/session (recomendado en App Router)
   const session = await getServerSession(authOptions);
 
   if (!isPublic && !session) {
@@ -58,7 +56,7 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
   };
 
   if (request.method !== 'GET' && request.method !== 'HEAD' && request.body) {
-    init.duplex = 'half'; // requerido en Node 18+ (undici) cuando se envía body
+    init.duplex = 'half';
     const contentType = request.headers.get('content-type') || '';
     if (contentType.includes('multipart/form-data')) {
       init.body = request.body;
@@ -77,6 +75,7 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     const contentType = res.headers.get('content-type') || '';
     const isJson = contentType.includes('application/json');
     const isBlob =
+      contentType.includes('application/zip') ||
       contentType.includes('application/vnd.openxmlformats') ||
       contentType.includes('application/octet-stream');
 
@@ -104,34 +103,4 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
       { status: 502 }
     );
   }
-}
-
-export async function GET(request: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
-  const { path } = await params;
-  const segments = path ?? [];
-  return proxyRequest(request, segments);
-}
-
-export async function POST(request: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
-  const { path } = await params;
-  const segments = path ?? [];
-  return proxyRequest(request, segments);
-}
-
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
-  const { path } = await params;
-  const segments = path ?? [];
-  return proxyRequest(request, segments);
-}
-
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
-  const { path } = await params;
-  const segments = path ?? [];
-  return proxyRequest(request, segments);
-}
-
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
-  const { path } = await params;
-  const segments = path ?? [];
-  return proxyRequest(request, segments);
 }

@@ -166,7 +166,7 @@ export default function UsuariosPage() {
         </main>
 
         {addModalOpen && (
-          <div className="modal show d-block usuarios-add-modal" role="dialog" aria-labelledby="usuarios-add-title" aria-modal="true">
+          <div className="modal show d-block app-modal app-modal-backdrop usuarios-add-modal" role="dialog" aria-labelledby="usuarios-add-title" aria-modal="true">
             <div className="modal-dialog modal-dialog-centered usuarios-add-dialog">
               <div className="modal-content usuarios-add-content">
                 <div className="modal-header usuarios-add-header">

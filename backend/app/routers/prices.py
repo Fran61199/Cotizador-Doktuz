@@ -1,6 +1,6 @@
 """API: descarga de plantilla XLSX, importación y listado/edición 1x1 de precios."""
 import io
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Literal
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -27,16 +27,21 @@ class PriceUpdateBody(BaseModel):
     ingreso: float = 0
     periodico: float = 0
     retiro: float = 0
+    no_realiza: bool = False
 
 
 class AddPriceBody(BaseModel):
-    """Añade una prueba (crea test si no existe) y su precio para la sede."""
+    """Añade una prueba (crea test si no existe) y su precio. scope=one usa clinic_id; all=todas; selected=clinic_ids + include_lima."""
     test_name: str
     category: str
-    clinic_id: Optional[int] = None  # None = Lima
+    clinic_id: Optional[int] = None  # None = Lima (usado si scope=one)
     ingreso: float = 0
     periodico: float = 0
     retiro: float = 0
+    scope: Literal["one", "all", "selected"] = "one"
+    clinic_ids: Optional[List[int]] = None  # solo si scope=selected
+    include_lima: bool = False  # solo si scope=selected
+    only_one_clinic: bool = False  # si True, ignora scope y añade solo a clinic_id (evita añadir a todas por error)
 
 
 class DeletePriceBody(BaseModel):
@@ -54,6 +59,7 @@ class PriceRow(BaseModel):
     ingreso: float = 0
     periodico: float = 0
     retiro: float = 0
+    no_realiza: bool = False  # True = la clínica no realiza esta prueba
 
 
 HEADERS = ["prueba", "categoria", "clinica", "ingreso", "periodico", "retiro"]
@@ -219,10 +225,23 @@ def list_prices_by_clinic(
     for t in tests:
         p = prices_by_test.get((t.id, clinic_id))
         if p:
-            rows.append(PriceRow(test_id=t.id, test_name=t.name, category=t.category, price_id=p.id, ingreso=p.ingreso, periodico=p.periodico, retiro=p.retiro))
+            rows.append(PriceRow(test_id=t.id, test_name=t.name, category=t.category, price_id=p.id, ingreso=p.ingreso, periodico=p.periodico, retiro=p.retiro, no_realiza=getattr(p, "no_realiza", False)))
         else:
-            rows.append(PriceRow(test_id=t.id, test_name=t.name, category=t.category, price_id=None, ingreso=0, periodico=0, retiro=0))
+            rows.append(PriceRow(test_id=t.id, test_name=t.name, category=t.category, price_id=None, ingreso=0, periodico=0, retiro=0, no_realiza=False))
     return {"clinic": "Lima" if is_lima else clinic.strip(), "clinic_id": clinic_id, "tests": [r.model_dump() for r in rows]}
+
+
+def _target_clinic_ids(scope: str, clinic_id: Optional[int], clinic_ids: Optional[List[int]], include_lima: bool, db: Session) -> List[Optional[int]]:
+    """Devuelve lista de clinic_id (None = Lima) según scope. Con scope=one solo se añade a esa sede."""
+    if scope == "one":
+        return [clinic_id]  # una sola sede: Lima (None) o la indicada por clinic_id
+    if scope == "all":
+        ids = [c.id for c in db.query(Clinic.id).all()]
+        return [None] + ids  # Lima + todas provincia
+    if scope == "selected":
+        targets = ([None] if include_lima else []) + (clinic_ids or [])
+        return targets
+    return [clinic_id]
 
 
 @router.post("/add")
@@ -231,44 +250,55 @@ def add_price(
     db: Session = Depends(get_db),
     _: tuple = Depends(require_user),
 ):
-    """Añade una prueba (crea test si no existe) y su precio para la sede. clinic_id null = Lima."""
+    """Añade una prueba (crea test si no existe) y su precio. scope=one|all|selected."""
     name = (body.test_name or "").strip()
     category = (body.category or "").strip()
     if not name or not category:
         raise HTTPException(status_code=400, detail="Nombre y categoría son obligatorios.")
+    if body.scope == "selected" and not body.include_lima and not (body.clinic_ids and len(body.clinic_ids) > 0):
+        raise HTTPException(status_code=400, detail="Selecciona al menos una sede o marca Lima.")
     try:
-        if body.clinic_id is not None:
-            c = db.query(Clinic).filter(Clinic.id == body.clinic_id).first()
-            if not c:
-                raise HTTPException(status_code=404, detail="Sede no encontrada.")
+        if body.only_one_clinic:
+            targets = [body.clinic_id]
+        else:
+            targets = _target_clinic_ids(body.scope, body.clinic_id, body.clinic_ids, body.include_lima or False, db)
+        for cid in targets:
+            if cid is not None:
+                clinic = db.query(Clinic).filter(Clinic.id == cid).first()
+                if not clinic:
+                    raise HTTPException(status_code=404, detail=f"Sede id {cid} no encontrada.")
         test = db.query(Test).filter(Test.name == name, Test.category == category).first()
         if not test:
             test = Test(name=name, category=category)
             db.add(test)
             db.flush()
-        existing = (
-            db.query(Price)
-            .filter(Price.test_id == test.id, Price.clinic_id == body.clinic_id)
-            .first()
-        )
-        if existing:
-            existing.ingreso = max(0, float(body.ingreso))
-            existing.periodico = max(0, float(body.periodico))
-            existing.retiro = max(0, float(body.retiro))
-            db.commit()
-            db.refresh(existing)
-            return {"id": existing.id, "test_id": existing.test_id, "test_name": test.name, "category": test.category, "clinic_id": existing.clinic_id, "ingreso": existing.ingreso, "periodico": existing.periodico, "retiro": existing.retiro}
-        new_price = Price(
-            test_id=test.id,
-            clinic_id=body.clinic_id,
-            ingreso=max(0, float(body.ingreso)),
-            periodico=max(0, float(body.periodico)),
-            retiro=max(0, float(body.retiro)),
-        )
-        db.add(new_price)
+        ing = max(0, float(body.ingreso))
+        per = max(0, float(body.periodico))
+        ret = max(0, float(body.retiro))
+        count = 0
+        for target_cid in targets:
+            existing = (
+                db.query(Price)
+                .filter(Price.test_id == test.id, Price.clinic_id == target_cid)
+                .first()
+            )
+            if existing:
+                existing.ingreso = ing
+                existing.periodico = per
+                existing.retiro = ret
+                count += 1
+            else:
+                new_price = Price(
+                    test_id=test.id,
+                    clinic_id=target_cid,
+                    ingreso=ing,
+                    periodico=per,
+                    retiro=ret,
+                )
+                db.add(new_price)
+                count += 1
         db.commit()
-        db.refresh(new_price)
-        return {"id": new_price.id, "test_id": new_price.test_id, "test_name": test.name, "category": test.category, "clinic_id": new_price.clinic_id, "ingreso": new_price.ingreso, "periodico": new_price.periodico, "retiro": new_price.retiro}
+        return {"id": test.id, "test_id": test.id, "test_name": test.name, "category": test.category, "count": count}
     except HTTPException:
         db.rollback()
         raise
@@ -294,8 +324,9 @@ def update_price(
             existing.ingreso = max(0, float(body.ingreso))
             existing.periodico = max(0, float(body.periodico))
             existing.retiro = max(0, float(body.retiro))
+            existing.no_realiza = bool(body.no_realiza)
             db.commit()
-            return {"id": existing.id, "test_id": existing.test_id, "clinic_id": existing.clinic_id, "ingreso": existing.ingreso, "periodico": existing.periodico, "retiro": existing.retiro}
+            return {"id": existing.id, "test_id": existing.test_id, "clinic_id": existing.clinic_id, "ingreso": existing.ingreso, "periodico": existing.periodico, "retiro": existing.retiro, "no_realiza": existing.no_realiza}
         test = db.query(Test).filter(Test.id == body.test_id).first()
         if not test:
             raise HTTPException(status_code=404, detail="Prueba no encontrada.")
@@ -309,11 +340,12 @@ def update_price(
             ingreso=max(0, float(body.ingreso)),
             periodico=max(0, float(body.periodico)),
             retiro=max(0, float(body.retiro)),
+            no_realiza=bool(body.no_realiza),
         )
         db.add(new_price)
         db.commit()
         db.refresh(new_price)
-        return {"id": new_price.id, "test_id": new_price.test_id, "clinic_id": new_price.clinic_id, "ingreso": new_price.ingreso, "periodico": new_price.periodico, "retiro": new_price.retiro}
+        return {"id": new_price.id, "test_id": new_price.test_id, "clinic_id": new_price.clinic_id, "ingreso": new_price.ingreso, "periodico": new_price.periodico, "retiro": new_price.retiro, "no_realiza": new_price.no_realiza}
     except HTTPException:
         db.rollback()
         raise

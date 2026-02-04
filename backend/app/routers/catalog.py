@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from app.dependencies import require_user
-from app.services.catalog_service import get_catalog, get_clinics
+from app.services.catalog_service import get_catalog, get_clinics, get_clinics_with_ids, create_clinic
 
 router = APIRouter()
+
+
+class CreateClinicBody(BaseModel):
+    name: str
 
 
 @router.get("")
@@ -23,9 +28,26 @@ def fetch_catalog(
 
 
 @router.get("/clinics")
-def list_clinics(_: tuple = Depends(require_user)):
-    """Lista las clínicas disponibles."""
+def list_clinics(
+    with_ids: bool = Query(False, description="Si True, devuelve [{ id, name }]"),
+    _: tuple = Depends(require_user),
+):
+    """Lista las clínicas. with_ids=True devuelve [{ id, name }] para selector múltiple."""
     try:
+        if with_ids:
+            return {"clinics": get_clinics_with_ids()}
         return {"clinics": get_clinics()}
     except Exception:
         raise HTTPException(status_code=500, detail="Error al cargar las clínicas.")
+
+
+@router.post("/clinics")
+def add_clinic(body: CreateClinicBody, _: tuple = Depends(require_user)):
+    """Crea una nueva sede (clínica)."""
+    try:
+        name = create_clinic(body.name or "")
+        return {"name": name}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error al crear la sede.")

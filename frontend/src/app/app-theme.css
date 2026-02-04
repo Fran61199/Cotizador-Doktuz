@@ -375,14 +375,25 @@ html, body {
 [data-theme="dark"] .app-input,
 [data-theme="dark"] .form-control,
 [data-theme="dark"] .form-select {
-  background-color: var(--input-bg);
-  border-color: var(--input-border);
-  color: var(--text-primary);
+  background-color: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--text-primary) !important;
 }
 
 [data-theme="dark"] .app-input::placeholder,
 [data-theme="dark"] .form-control::placeholder {
-  color: var(--text-muted);
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] select.form-control,
+[data-theme="dark"] select.form-select,
+[data-theme="dark"] select.app-input {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] select.form-select option {
+  background: var(--input-bg);
+  color: var(--text-primary);
 }
 
 [data-theme="dark"] .section-title,
@@ -432,6 +443,146 @@ html, body {
 [data-theme="dark"] .modal-body,
 [data-theme="dark"] .modal-footer {
   border-color: var(--border-light);
+}
+
+/* ===== Componentes reutilizables: ventanas flotantes (modales) ===== */
+/* Formato compartido en la plataforma (mismo que Añadir usuario, etc.) */
+.app-modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.app-modal .modal-content {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 8px;
+  color: var(--text-primary) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+}
+
+.app-modal .modal-header {
+  border-bottom: 1px solid var(--border-light);
+  padding: 1rem 1.25rem;
+}
+
+.app-modal .modal-body {
+  padding: 1.25rem 1.25rem;
+  color: var(--text-primary);
+}
+
+.app-modal .modal-footer {
+  border-top: 1px solid var(--border-light);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.app-modal .modal-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--text-primary) !important;
+  margin: 0;
+}
+
+.app-modal .form-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* Botones del modal: colores y estilo de la app */
+.app-modal .btn:not(.btn-close) {
+  font-weight: 500;
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  min-width: 5rem;
+}
+
+.app-modal .btn-primary {
+  background: var(--primary-btn) !important;
+  border-color: var(--primary-btn) !important;
+  color: #fff !important;
+}
+
+.app-modal .btn-primary:hover:not(:disabled) {
+  background: var(--primary-btn-hover) !important;
+  border-color: var(--primary-btn-hover) !important;
+  color: #fff !important;
+}
+
+.app-modal .btn-secondary {
+  background: var(--table-header-bg) !important;
+  border-color: var(--border-light) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Inputs del modal: mismo estilo que el resto de la app */
+.app-modal .form-control,
+.app-modal .app-input {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--text-primary) !important;
+}
+
+.app-modal .form-control::placeholder,
+.app-modal .app-input::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Modo oscuro: cualquier modal con .app-modal hereda estos estilos */
+[data-theme="dark"] .app-modal .modal-content {
+  background: var(--card-bg) !important;
+  border-color: var(--border-light) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .app-modal .modal-header,
+[data-theme="dark"] .app-modal .modal-body,
+[data-theme="dark"] .app-modal .modal-footer {
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .app-modal .modal-title {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .app-modal .form-label {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .app-modal .text-muted {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .app-modal .text-muted strong {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .app-modal .form-control {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .app-modal .form-control::placeholder {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .app-modal .btn-secondary {
+  background: var(--table-header-bg) !important;
+  border-color: var(--border-light) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .app-modal .btn-close {
+  filter: invert(1);
+}
+
+[data-theme="dark"] .app-modal .form-check-label {
+  color: var(--text-primary);
 }
 
 [data-theme="dark"] .login-page {
@@ -1081,7 +1232,291 @@ html, body {
   max-width: 320px;
 }
 
-/* Página Pruebas - minimalista y alineación consistente */
+/* Página Pruebas - escala tipográfica unificada (solo 2 tamaños: título 1rem, resto 0.8125rem) */
+.pruebas-dashboard {
+  padding-bottom: 2rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.pruebas-dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  margin-top: 0;
+}
+
+.pruebas-dashboard-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.pruebas-dashboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pruebas-btn-header {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  min-height: 36px;
+}
+
+.pruebas-dashboard-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.pruebas-dashboard-selector.clinic-selector-wrap {
+  max-width: 320px;
+  min-width: 0;
+}
+
+.pruebas-selector-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.pruebas-selector-select {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  max-width: 280px;
+  min-height: 40px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--content-bg);
+  color: var(--text-primary);
+}
+
+.pruebas-selector-select:focus {
+  border-color: var(--primary-btn);
+  box-shadow: 0 0 0 2px rgba(30, 58, 95, 0.15);
+}
+
+.pruebas-dashboard-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.pruebas-total-count {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.pruebas-dashboard-card {
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--content-bg);
+}
+
+.pruebas-empty-state {
+  margin: 0;
+}
+
+.pruebas-secondary .pruebas-search-results {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.pruebas-context-menu {
+  position: absolute;
+  background: var(--content-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  padding: 0.35rem;
+}
+
+/* Títulos de sección dentro de pruebas: mismo tamaño y peso */
+.pruebas-dashboard .section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.pruebas-prices-card.catalog-card {
+  padding: 1rem;
+  font-size: 0.8125rem;
+}
+
+.pruebas-catalog-search {
+  max-width: 100%;
+  width: 100%;
+  font-size: 0.8125rem;
+}
+
+.pruebas-accordion-btn {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.pruebas-accordion-btn .fw-semibold,
+.pruebas-accordion-btn .small {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.pruebas-accordion-btn::after {
+  flex-shrink: 0;
+}
+
+.pruebas-accordion-item {
+  border-color: var(--border-light) !important;
+}
+
+.pruebas-category-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.pruebas-price-row {
+  border-color: var(--border-light) !important;
+  font-size: 0.8125rem;
+}
+
+.pruebas-price-row-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin-right: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.pruebas-price-row-name .small,
+.pruebas-prices-card .text-muted.small {
+  font-size: 0.8125rem;
+}
+
+.pruebas-prices-card .mb-0.py-4 {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.pruebas-price-row-inputs {
+  flex-shrink: 0;
+}
+
+.pruebas-price-input {
+  width: 4.5rem;
+  min-width: 4.5rem;
+  max-width: 5.5rem;
+  font-size: 0.8125rem;
+}
+
+.pruebas-price-row-menu {
+  flex-shrink: 0;
+}
+
+/* Página Pruebas: modo oscuro — texto legible (inputs, select, badge) */
+[data-theme="dark"] .pruebas-dashboard-title {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .pruebas-selector-label {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .pruebas-selector-select {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .pruebas-total-count {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .pruebas-context-menu {
+  background: var(--card-bg);
+  border-color: var(--border-light);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+
+[data-theme="dark"] .pruebas-prices-card .pruebas-price-row,
+[data-theme="dark"] .pruebas-prices-card .pruebas-price-row-name,
+[data-theme="dark"] .pruebas-prices-card .pruebas-catalog-search {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .pruebas-prices-card .app-input,
+[data-theme="dark"] .pruebas-prices-card .form-control {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .pruebas-prices-card .app-input::placeholder,
+[data-theme="dark"] .pruebas-prices-card .form-control::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Badge de categoría: texto claro en modo oscuro */
+[data-theme="dark"] .pruebas-prices-card .badge.bg-secondary,
+[data-theme="dark"] .pruebas-category-badge {
+  background: var(--table-header-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .pruebas-secondary .h6,
+[data-theme="dark"] .pruebas-secondary .text-muted {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .pruebas-secondary .form-control,
+[data-theme="dark"] .pruebas-secondary .app-input {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .pruebas-secondary .form-control::placeholder {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .pruebas-dashboard input,
+[data-theme="dark"] .pruebas-dashboard select {
+  color: var(--text-primary) !important;
+}
+
+/* Buscar e importar: mismo tamaño de texto que el resto de la página */
+.pruebas-secondary .section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.pruebas-secondary .form-control,
+.pruebas-secondary .btn {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* Página Pruebas - secciones secundarias (legacy) */
 .pruebas-section {
   margin-bottom: 1.25rem;
 }
@@ -1373,6 +1808,28 @@ html, body {
   flex-shrink: 0;
   font-weight: bold;
   color: var(--primary-btn);
+}
+
+[data-theme="dark"] .clinic-selector-dropdown {
+  background: var(--card-bg) !important;
+  border-color: var(--border-light);
+}
+
+[data-theme="dark"] .clinic-selector-item {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .clinic-selector-item:hover {
+  background: var(--table-header-bg);
+}
+
+[data-theme="dark"] .clinic-selector-chip {
+  background: var(--table-header-bg);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .clinic-selector-empty {
+  color: var(--text-muted);
 }
 
 /* Badges pill para clasificación */
@@ -1778,6 +2235,37 @@ html, body {
     min-height: 44px;
     text-align: center;
     margin: 0;
+  }
+
+  .pruebas-dashboard-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pruebas-dashboard-actions {
+    flex-direction: column;
+  }
+
+  .pruebas-btn-header {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .pruebas-dashboard-selector {
+    flex-wrap: wrap;
+  }
+
+  .pruebas-selector-select {
+    max-width: 100%;
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .pruebas-dashboard-toolbar {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .pruebas-toolbar {

@@ -1,5 +1,5 @@
 # app/models/db_models.py
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -42,8 +42,7 @@ class Clinic(Base):
 
 class Price(Base):
     """Precios por prueba. clinic_id=NULL = Lima (precio final). clinic_id set = Provincia (costo por clínica).
-    Una fila por (prueba, clínica). Índices mínimos: uq_test_clinic sirve para (test_id, clinic_id) y por test_id;
-    ix_prices_clinic_id solo para consultas por clínica (todas las pruebas de una clínica)."""
+    Una fila por (prueba, clínica). no_realiza=True = la clínica no realiza esta prueba."""
     __tablename__ = "prices"
     id = Column(Integer, primary_key=True, index=True)
     test_id = Column(Integer, ForeignKey("tests.id"), nullable=False)
@@ -51,6 +50,7 @@ class Price(Base):
     ingreso = Column(Float, nullable=False, default=0)
     periodico = Column(Float, nullable=False, default=0)
     retiro = Column(Float, nullable=False, default=0)
+    no_realiza = Column(Boolean, nullable=False, default=False)  # True = clínica no realiza esta prueba
     test = relationship("Test", back_populates="prices")
     clinic = relationship("Clinic", back_populates="prices")
     __table_args__ = (

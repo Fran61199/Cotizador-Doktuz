@@ -6,10 +6,10 @@ export {
   type RegisterPayload,
   type UserAuthResponse,
 } from './auth';
-export { getClinics, getCatalog } from './catalog';
+export { getClinics, getClinicsWithIds, createClinic, getCatalog, type ClinicWithId } from './catalog';
 export { getNextProposalNumber } from './proposal';
 export { createDocuments } from './generator';
-export { getUsers, addUser, inviteUser, type UserItem } from './users';
+export { getUsers, inviteUser, type UserItem } from './users';
 export {
   downloadPricesTemplate,
   getImportPreview,

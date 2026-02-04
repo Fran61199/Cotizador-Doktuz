@@ -30,6 +30,7 @@ export type PriceRow = {
   ingreso: number;
   periodico: number;
   retiro: number;
+  no_realiza?: boolean;
 };
 
 export type PricesListResult = {
@@ -71,6 +72,7 @@ export type PriceUpdatePayload = {
   ingreso: number;
   periodico: number;
   retiro: number;
+  no_realiza?: boolean;
 };
 
 /** Lista exámenes y precios para una sede (Lima o nombre de clínica). */
@@ -104,6 +106,11 @@ export type AddPricePayload = {
   ingreso: number;
   periodico: number;
   retiro: number;
+  scope?: 'one' | 'all' | 'selected';
+  clinic_ids?: number[];
+  include_lima?: boolean;
+  /** Si true, el backend añade solo a clinic_id (ignora scope). Usar desde "Añadir prueba" en una sede. */
+  only_one_clinic?: boolean;
 };
 
 export type DeletePricePayload = {
@@ -112,8 +119,8 @@ export type DeletePricePayload = {
   clinic_id?: number | null;
 };
 
-/** Añade una prueba (crea si no existe) y su precio para la sede. clinic_id null = Lima. */
-export async function addPrice(payload: AddPricePayload): Promise<{ id: number; test_id: number }> {
+/** Añade una prueba (crea si no existe) y su precio. scope=one (sede actual), all (todas), selected (clinic_ids + include_lima). */
+export async function addPrice(payload: AddPricePayload): Promise<{ id: number; test_id: number; count?: number }> {
   const res = await fetch(`${API_BASE}/api/prices/add`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

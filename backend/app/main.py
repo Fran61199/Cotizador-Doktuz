@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.database import Base, engine
+from app.database import Base, engine, ensure_no_realiza_column
 from app.limiter import limiter
 from app.models import db_models  # noqa: F401 - para registrar modelos
 from app.routers import auth, catalog, generator, proposal, prices
@@ -24,6 +24,7 @@ def _get_cors_origins():
 async def lifespan(app: FastAPI):
     """Eventos de inicio/fin de la aplicación."""
     Base.metadata.create_all(bind=engine)
+    ensure_no_realiza_column()  # migración: columna no_realiza en prices (evita 500 en list)
     yield
     # cleanup si hiciera falta
 
