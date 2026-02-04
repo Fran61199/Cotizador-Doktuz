@@ -438,7 +438,7 @@ export default function PruebasPage() {
                                               className="btn btn-sm btn-link text-danger text-start w-100 text-decoration-none"
                                               onClick={() => {
                                                 setDeleteModalTest(row);
-                                                setDeleteScope('clinic');
+                                                setDeleteScope(selectedClinic === 'Lima' ? 'lima' : 'clinic');
                                                 setDeleteError(null);
                                                 setContextMenuTest(null);
                                               }}
@@ -739,8 +739,8 @@ export default function PruebasPage() {
                   {selectedClinic === 'Lima' ? (
                     <>
                       <div className="form-check mb-1">
-                        <input className="form-check-input" type="radio" name="deleteScope" id="scope-clinic" value="clinic" checked={deleteScope === 'clinic'} onChange={(e) => setDeleteScope(e.target.value as any)} />
-                        <label className="form-check-label" htmlFor="scope-clinic">Lima</label>
+                        <input className="form-check-input" type="radio" name="deleteScope" id="scope-lima-only" value="lima" checked={deleteScope === 'lima'} onChange={(e) => setDeleteScope(e.target.value as any)} />
+                        <label className="form-check-label" htmlFor="scope-lima-only">Lima</label>
                       </div>
                       <div className="form-check mb-1">
                         <input className="form-check-input" type="radio" name="deleteScope" id="scope-provincia" value="all_provincia" checked={deleteScope === 'all_provincia'} onChange={(e) => setDeleteScope(e.target.value as any)} />
